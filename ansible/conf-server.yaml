@@ -1,0 +1,12 @@
+- hosts: bdt
+  remote_user: vagrant
+  gather_facts: no
+  tasks:
+    - name: synchronize bdt executable file
+      synchronize:
+        src: /vagrant/bdt
+        dest: /home/vagrant
+    - name: copy configuration file
+      copy:
+        src: /vagrant/bdt/config_gen/{{inventory_hostname}}.yaml
+        dest: /home/vagrant/bdt/config.yaml
