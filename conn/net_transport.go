@@ -140,7 +140,6 @@ func (n *NetworkTransport) listen() {
 func (n *NetworkTransport) handleConn(connCtx context.Context, conn net.Conn) {
 	defer conn.Close()
 	r := bufio.NewReader(conn)
-	w := bufio.NewWriter(conn)
 	dec := codec.NewDecoder(r, &codec.MsgpackHandle{})
 
 	for {
@@ -155,10 +154,6 @@ func (n *NetworkTransport) handleConn(connCtx context.Context, conn net.Conn) {
 			if err != io.EOF {
 				n.logger.Error("failed to decode incoming command", "error", err)
 			}
-			return
-		}
-		if err := w.Flush(); err != nil {
-			n.logger.Error("failed to flush response", "error", err)
 			return
 		}
 	}
@@ -244,7 +239,7 @@ func (n *NetworkTransport) dialConn(target string) (*NetConn, error) {
 func (n *NetworkTransport) GetConn(target string) (*NetConn, error) {
 	n.connPoolLock.Lock()
 	defer n.connPoolLock.Unlock()
-	// Check for an exiting conn
+	// Check for an existing conn
 	netConns, ok := n.connPool[target]
 	if ok && len(netConns) > 0 {
 		var netC *NetConn
@@ -305,7 +300,7 @@ func NewNetworkTransport(
 		logOutput = os.Stderr
 	}
 	logger := hclog.New(&hclog.LoggerOptions{
-		Name:   "smvba-conn",
+		Name:   "bdt-conn",
 		Output: logOutput,
 		Level:  hclog.DefaultLevel,
 	})
@@ -320,7 +315,7 @@ func NewNetworkTransportWithConfig(
 ) *NetworkTransport {
 	if config.Logger == nil {
 		config.Logger = hclog.New(&hclog.LoggerOptions{
-			Name:   "smvba-conn",
+			Name:   "bdt-conn",
 			Output: hclog.DefaultOutput,
 			Level:  hclog.DefaultLevel,
 		})
@@ -368,5 +363,6 @@ func SendMsg(conn *NetConn, rpcType uint8, args interface{}, sig []byte) error {
 		conn.Release()
 		return err
 	}
+
 	return nil
 }

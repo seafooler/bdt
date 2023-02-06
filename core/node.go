@@ -27,7 +27,7 @@ func NewNode(conf *config.Config) *Node {
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
-		Name:   "smvba-node",
+		Name:   "bdt-node",
 		Output: hclog.DefaultOutput,
 		Level:  hclog.Level(node.Config.LogLevel),
 	})

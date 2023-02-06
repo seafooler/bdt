@@ -12,11 +12,11 @@ type Bolt struct {
 	bLogger  hclog.Logger
 	leaderId int
 
-	committedHeight uint32
-	proofedHeight   map[uint32]bool
-	cachedHeight    map[uint32]bool
-	cachedVoteMsgs  map[uint32]map[int][]byte
-	cachedBlocks    map[uint32]*Block
+	committedHeight int
+	proofedHeight   map[int]bool
+	cachedHeight    map[int]bool
+	cachedVoteMsgs  map[int]map[int][]byte
+	cachedBlocks    map[int]*Block
 
 	proofReady chan ProofData
 	sync.Mutex
@@ -32,10 +32,10 @@ func NewBolt(node *Node, leader int) *Bolt {
 		}),
 		leaderId:        leader,
 		committedHeight: 0,
-		proofedHeight:   make(map[uint32]bool),
-		cachedHeight:    make(map[uint32]bool),
-		cachedVoteMsgs:  make(map[uint32]map[int][]byte),
-		cachedBlocks:    make(map[uint32]*Block),
+		proofedHeight:   make(map[int]bool),
+		cachedHeight:    make(map[int]bool),
+		cachedVoteMsgs:  make(map[int]map[int][]byte),
+		cachedBlocks:    make(map[int]*Block),
 		proofReady:      make(chan ProofData),
 	}
 }
@@ -43,6 +43,13 @@ func NewBolt(node *Node, leader int) *Bolt {
 func (b *Bolt) ProposalLoop() {
 	if b.node.Id != b.leaderId {
 		return
+	} else {
+		go func() {
+			b.proofReady <- ProofData{
+				Proof:  nil,
+				Height: -1,
+			}
+		}()
 	}
 
 	for {
@@ -55,6 +62,8 @@ func (b *Bolt) ProposalLoop() {
 		if err := b.BroadcastProposalProof(newBlock, proofReady.Proof); err != nil {
 			b.bLogger.Error("fail to broadcast proposal and proof", "height", newBlock.Height,
 				"err", err.Error())
+		} else {
+			b.bLogger.Info("successfully broadcast a new proposal and proof", "height", newBlock.Height)
 		}
 	}
 }
@@ -73,33 +82,47 @@ func (b *Bolt) BroadcastProposalProof(blk *Block, proof []byte) error {
 
 // ProcessBoltProposalMsg votes for the current proposal and commits the previous-previous block
 func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
-	// do not retrieve the previous block nor verify the proof for the first block
-	if pm.Height == 0 {
-		b.Lock()
-		b.cachedHeight[pm.Height] = true
-		b.cachedBlocks[pm.Height] = &pm.Block
-		b.Unlock()
-		return nil
-	}
-
-	// retrieve the previous block
-	pBlk, ok := b.cachedBlocks[pm.Height-1]
-	if !ok {
-		// Todo: deal with the situation where the previous block has not been cached
-		b.bLogger.Error("did not cache the previous block", "prev_block_index", pm.Height-1)
-		return nil
-	}
-
-	// verify the proof
-	if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, pBlk.Reqs, pm.Proof); err != nil {
-		b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
-		return err
-	}
-
 	b.Lock()
-	b.proofedHeight[pBlk.Height] = true
-	delete(b.cachedHeight, pBlk.Height)
+	b.cachedHeight[pm.Height] = true
+	b.cachedBlocks[pm.Height] = &pm.Block
 	b.Unlock()
+	// do not retrieve the previous block nor verify the proof for the 0th block
+	if pm.Height != 0 {
+		// retrieve the previous block
+		pBlk, ok := b.cachedBlocks[pm.Height-1]
+		if !ok {
+			// Todo: deal with the situation where the previous block has not been cached
+			b.bLogger.Error("did not cache the previous block", "prev_block_index", pm.Height-1)
+			return nil
+		}
+
+		// verify the proof
+		blockBytes, err := encode(*pBlk)
+		if err != nil {
+			b.bLogger.Error("fail to encode the block", "block_index", pm.Height)
+			return err
+		}
+
+		if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, pm.Proof); err != nil {
+			b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
+			return err
+		}
+
+		b.Lock()
+		b.proofedHeight[pBlk.Height] = true
+		delete(b.cachedHeight, pBlk.Height)
+		b.Unlock()
+
+		// attempt to commit the prev-prev block
+		b.Lock()
+		defer b.Unlock()
+		if _, ok := b.proofedHeight[pm.Height-2]; ok {
+			b.bLogger.Info("commit the block", "block_index", pm.Height-2)
+			// Todo: check the consecutive commitment
+			b.committedHeight = pm.Height - 21
+			delete(b.proofedHeight, pm.Height-2)
+		}
+	}
 
 	// create the ts share of new block
 	blockBytes, err := encode(pm.Block)
@@ -122,16 +145,6 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		return err
 	} else {
 		b.bLogger.Debug("successfully vote for the block", "block_index", pm.Height)
-	}
-
-	// attempt to commit the prev-prev block
-	b.Lock()
-	defer b.Unlock()
-	if _, ok := b.proofedHeight[pBlk.Height-1]; ok {
-		b.bLogger.Info("commit the block", "block_index", pBlk.Height-1)
-		// Todo: check the consecutive commitment
-		b.committedHeight = pBlk.Height - 1
-		delete(b.proofedHeight, pBlk.Height-1)
 	}
 	return nil
 }
