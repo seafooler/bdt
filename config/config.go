@@ -29,11 +29,12 @@ type Config struct {
 
 	MaxPool  int
 	LogLevel int
+	Timeout  int
 }
 
 // New creates a new variable of type Config from some arguments.
 func New(id int, name string, id2NameMap map[int]string, name2IdMap map[string]int, addr, p2pPort string,
-	priKeyTS *share.PriShare, pubKeyTS *share.PubPoly, id2AddrMap, id2PortMap map[int]string, maxPool, logLevel int) *Config {
+	priKeyTS *share.PriShare, pubKeyTS *share.PubPoly, id2AddrMap, id2PortMap map[int]string, maxPool, logLevel, timeOut int) *Config {
 	conf := &Config{
 		Id:         id,
 		Name:       name,
@@ -47,6 +48,7 @@ func New(id int, name string, id2NameMap map[int]string, name2IdMap map[string]i
 		Id2PortMap: id2PortMap,
 		MaxPool:    maxPool,
 		LogLevel:   logLevel,
+		Timeout:    timeOut,
 	}
 
 	conf.N = len(id2NameMap)
@@ -79,6 +81,7 @@ func LoadConfig(configPrefix, configName string) (*Config, error) {
 	p2pPort := viperConfig.GetString("p2p_port")
 	logLevel := viperConfig.GetInt("log_level")
 	maxPool := viperConfig.GetInt("max_pool")
+	timeOut := viperConfig.GetInt("timeout")
 
 	idStringNameMap := viperConfig.GetStringMapString("id_name")
 	id2NameMap := make(map[int]string)
@@ -136,5 +139,5 @@ func LoadConfig(configPrefix, configName string) (*Config, error) {
 	}
 
 	return New(id, name, id2NameMap, name2IdMap, addr, p2pPort, tsShareKey, tsPubKey, id2AddrMap, id2P2PPortMap,
-		maxPool, logLevel), nil
+		maxPool, logLevel, timeOut), nil
 }

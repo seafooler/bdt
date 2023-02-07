@@ -57,7 +57,7 @@ type ABA struct {
 	cachedBvalMsgs map[uint32][]*ABABvalRequestMsg
 	cachedAuxMsgs  map[uint32][]*ABAAuxRequestMsg
 
-	lock sync.RWMutex
+	lock sync.Mutex
 }
 
 // NewABA returns a new instance of the Binary Byzantine Agreement.
@@ -89,6 +89,8 @@ func NewABA(node *Node) *ABA {
 // inputValue will set the given val as the initial value to be proposed in the
 // Agreement.
 func (b *ABA) inputValue(val bool) error {
+	b.aLogger.Info("!!!!!!!!!!!!!!!!!!!! ABA is launched !!!!!!!!!!!!!!!!!!!!")
+
 	// Make sure we are in the first epoch round.
 	if b.epoch != 0 || b.estimated != nil {
 		return nil
@@ -176,7 +178,7 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		b.binValues[msg.Value] = struct{}{}
 		// If inputs > 0 broadcast output(b) and handle the output ourselfs.
 		// Wait until binValues > 0, then broadcast AUX(b). The AUX(b) broadcast
-		// may only occure once per epoch.
+		// may only occur once per epoch.
 		if wasEmptyBinValues {
 			parSig := sign_tools.SignTSPartial(b.node.PriKeyTS, []byte(fmt.Sprint(b.epoch)))
 			m := ABAAuxRequestMsg{

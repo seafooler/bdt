@@ -6,6 +6,7 @@ import (
 	"github.com/seafooler/bdt/config"
 	"github.com/seafooler/bdt/conn"
 	"reflect"
+	"sync"
 	"time"
 )
 
@@ -19,12 +20,20 @@ type Node struct {
 	reflectedTypesMap map[uint8]reflect.Type
 
 	trans *conn.NetworkTransport
+
+	timeoutMsgsReceived map[int]struct{}
+	timeoutMsgSent      bool
+
+	status uint8 // 0 or 1 indicates the node is in the status of bolt or aba
+
+	sync.Mutex
 }
 
 func NewNode(conf *config.Config) *Node {
 	node := &Node{
-		Config:            conf,
-		reflectedTypesMap: reflectedTypesMap,
+		Config:              conf,
+		reflectedTypesMap:   reflectedTypesMap,
+		timeoutMsgsReceived: make(map[int]struct{}),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -57,20 +66,44 @@ func (n *Node) HandleMsgsLoop() {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
-				go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
+				if n.status == 0 {
+					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
+				}
 			case BoltVoteMsg:
-				go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
-			//case AgreementMessage:
-			//	go n.Aba.handleMessage(&msgAsserted)
+				if n.status == 0 {
+					go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
+				}
 			case ABABvalRequestMsg:
-				go n.Aba.handleBvalRequest(&msgAsserted)
+				if n.status == 1 {
+					go n.Aba.handleBvalRequest(&msgAsserted)
+				}
 			case ABAAuxRequestMsg:
-				go n.Aba.handleAuxRequest(&msgAsserted)
+				if n.status == 1 {
+					go n.Aba.handleAuxRequest(&msgAsserted)
+				}
 			case ABAExitMsg:
-				go n.Aba.handleExitMessage(&msgAsserted)
+				if n.status == 1 {
+					go n.Aba.handleExitMessage(&msgAsserted)
+				}
+			case TimeoutMsg:
+				n.logger.Info("Receive a timeout message", "msg", msgAsserted)
+				go n.handleTimeoutMessage(&msgAsserted)
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}
+		case <-time.After(time.Second * time.Duration(n.Timeout)):
+			n.Lock()
+			// timeout only works when the node is in Bolt
+			if n.status != 0 {
+				continue
+				n.Unlock()
+			}
+			if !n.timeoutMsgSent {
+				n.logger.Info("Broadcast a timeout message")
+				go n.PlainBroadcast(TimeoutMsgTag, TimeoutMsg{Sender: n.Id}, nil)
+				n.timeoutMsgSent = true
+			}
+			n.Unlock()
 		}
 	}
 }
@@ -119,4 +152,22 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 		}
 	}
 	return nil
+}
+
+func (n *Node) handleTimeoutMessage(t *TimeoutMsg) {
+	n.Lock()
+	defer n.Unlock()
+	n.timeoutMsgsReceived[t.Sender] = struct{}{}
+	if len(n.timeoutMsgsReceived) >= n.F+1 && !n.timeoutMsgSent {
+		n.logger.Info("Broadcast a timeout message")
+		go n.PlainBroadcast(TimeoutMsgTag, TimeoutMsg{Sender: n.Id}, nil)
+	}
+
+	n.timeoutMsgSent = true
+
+	if len(n.timeoutMsgsReceived) >= 2*n.F+1 && n.status == 0 {
+		n.logger.Info("Switch from Bolt to ABA after timeout being triggered")
+		n.status = 1
+		n.Aba.inputValue(true)
+	}
 }

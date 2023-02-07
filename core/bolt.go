@@ -59,6 +59,12 @@ func (b *Bolt) ProposalLoop() {
 			Height:   proofReady.Height + 1,
 			Proposer: b.node.Id,
 		}
+
+		// For testing: trigger a timeout to switch from bolt yo aba
+		if newBlock.Height == 100 {
+			return
+		}
+
 		if err := b.BroadcastProposalProof(newBlock, proofReady.Proof); err != nil {
 			b.bLogger.Error("fail to broadcast proposal and proof", "height", newBlock.Height,
 				"err", err.Error())

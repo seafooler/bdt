@@ -9,6 +9,7 @@ const (
 	ABABvalRequestMsgTag
 	ABAExitMsgTag
 	ABAAuxRequestMsgTag
+	TimeoutMsgTag
 )
 
 type Block struct {
@@ -54,11 +55,17 @@ type ABAExitMsg struct {
 	Value  bool
 }
 
+// TimeoutMsg indicates a timeout triggered in Bolt
+type TimeoutMsg struct {
+	Sender int
+}
+
 var bpMsg BoltProposalMsg
 var bvMsg BoltVoteMsg
 var ababrMsg ABABvalRequestMsg
 var abaarMsg ABAAuxRequestMsg
 var abaexMsg ABAExitMsg
+var timeMsg TimeoutMsg
 
 var reflectedTypesMap = map[uint8]reflect.Type{
 	BoltProposalMsgTag:   reflect.TypeOf(bpMsg),
@@ -66,4 +73,5 @@ var reflectedTypesMap = map[uint8]reflect.Type{
 	ABABvalRequestMsgTag: reflect.TypeOf(ababrMsg),
 	ABAAuxRequestMsgTag:  reflect.TypeOf(abaarMsg),
 	ABAExitMsgTag:        reflect.TypeOf(abaexMsg),
+	TimeoutMsgTag:        reflect.TypeOf(timeMsg),
 }

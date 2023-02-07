@@ -87,6 +87,7 @@ func main() {
 	shares, pubPoly := sign_tools.GenTSKeys(numT, nodeNumber)
 	logLevel := viperRead.GetInt("log_level")
 	maxPool := viperRead.GetInt("max_pool")
+	timeOut := viperRead.GetInt("timeout")
 
 	// write to configure files
 	for i, name := range idNameMap {
@@ -111,6 +112,7 @@ func main() {
 		viperWrite.Set("TSPubKey", hex.EncodeToString(tsPubKeyAsBytes))
 		viperWrite.Set("log_level", logLevel)
 		viperWrite.Set("max_pool", maxPool)
+		viperWrite.Set("timeout", timeOut)
 		viperWrite.Set("id_name", idNameMap)
 		viperWrite.Set("id_ip", idIPMap)
 		viperWrite.WriteConfig()

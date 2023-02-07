@@ -15,3 +15,4 @@ id_p2p_port:
   3: 9000
 log_level: 3
 max_pool: 10
+timeout: 5
