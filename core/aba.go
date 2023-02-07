@@ -20,14 +20,17 @@ type ABA struct {
 	// Bval requests we accepted this epoch.
 	binValues map[bool]struct{}
 
-	// sentBvals are the binary values this instance sent.
-	sentBvals []bool
+	// sentBvals are the binary values this instance sent
+	// historical sentBvals must also be maintained due to the asynchronous network
+	sentBvals map[uint32][2]bool
 
-	// recvTrueBval is a mapping of the sender and the received binary value.
-	recvTrueBval map[int]bool
+	// recvTrueBval is a mapping of the sender and the received true value
+	// historical Bvals must also be maintained due to the asynchronous network
+	recvTrueBval map[uint32]map[int]bool
 
-	// recvFalseBval is a mapping of the sender and the received binary value.
-	recvFalseBval map[int]bool
+	// recvFalseBval is a mapping of the sender and the received false value
+	// historical Bvals must also be maintained due to the asynchronous network
+	recvFalseBval map[uint32]map[int]bool
 
 	// recvAux is a mapping of the sender and the received Aux value.
 	recvAux map[int]bool
@@ -59,7 +62,7 @@ type ABA struct {
 
 // NewABA returns a new instance of the Binary Byzantine Agreement.
 func NewABA(node *Node) *ABA {
-	return &ABA{
+	aBA := &ABA{
 		node: node,
 		aLogger: hclog.New(&hclog.LoggerOptions{
 			Name:   "bdt-aba",
@@ -67,15 +70,20 @@ func NewABA(node *Node) *ABA {
 			Level:  hclog.Level(node.Config.LogLevel),
 		}),
 		epoch:          0,
-		recvTrueBval:   make(map[int]bool),
-		recvFalseBval:  make(map[int]bool),
+		recvTrueBval:   make(map[uint32]map[int]bool),
+		recvFalseBval:  make(map[uint32]map[int]bool),
 		recvAux:        make(map[int]bool),
 		exitMsgs:       make(map[int]bool),
-		sentBvals:      []bool{},
+		sentBvals:      make(map[uint32][2]bool),
 		binValues:      make(map[bool]struct{}),
 		cachedBvalMsgs: make(map[uint32][]*ABABvalRequestMsg),
 		cachedAuxMsgs:  make(map[uint32][]*ABAAuxRequestMsg),
 	}
+
+	aBA.recvTrueBval[aBA.epoch] = make(map[int]bool)
+	aBA.recvFalseBval[aBA.epoch] = make(map[int]bool)
+
+	return aBA
 }
 
 // inputValue will set the given val as the initial value to be proposed in the
@@ -86,7 +94,13 @@ func (b *ABA) inputValue(val bool) error {
 		return nil
 	}
 	b.estimated = val
-	b.sentBvals = append(b.sentBvals, val)
+	if val == true {
+		// set the first value as true
+		b.sentBvals[0] = [2]bool{true, false}
+	} else {
+		// set the second value as true
+		b.sentBvals[0] = [2]bool{false, true}
+	}
 	msg := ABABvalRequestMsg{
 		Sender: b.node.Id,
 		Epoch:  b.epoch,
@@ -113,12 +127,6 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		return nil
 	}
 
-	// Ignore messages from older epochs.
-	if msg.Epoch < b.epoch {
-		b.aLogger.Debug("receive a bval msg from an older epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
-			"msg.Epoch", msg.Epoch)
-		return nil
-	}
 	// Messages from later epochs will be qued and processed later.
 	if msg.Epoch > b.epoch {
 		b.aLogger.Debug("receive a bval msg from a future epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
@@ -127,25 +135,39 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		return nil
 	}
 
+	// Need to update binValues and broadcast corresponding bvals even if receiving an obsolete message
 	if msg.Value {
-		b.recvTrueBval[msg.Sender] = msg.Value
+		b.recvTrueBval[b.epoch][msg.Sender] = msg.Value
 	} else {
-		b.recvFalseBval[msg.Sender] = msg.Value
+		b.recvFalseBval[b.epoch][msg.Sender] = msg.Value
 	}
-	lenBval := b.countBvals(msg.Value)
+	lenBval := b.countBvals(msg.Value, msg.Epoch)
 
 	// When receiving input(b) messages from f + 1 nodes, if inputs(b) is not
 	// been sent yet broadcast input(b) and handle the input ourselves.
-	if lenBval == b.node.F+1 && !b.hasSentBval(msg.Value) {
-		b.sentBvals = append(b.sentBvals, msg.Value)
+	if lenBval == b.node.F+1 && !b.hasSentBval(msg.Value, msg.Epoch) {
+		sb := b.sentBvals[msg.Epoch]
+		if msg.Value {
+			sb[0] = true
+		} else {
+			sb[1] = true
+		}
+		b.sentBvals[msg.Epoch] = sb
 		m := ABABvalRequestMsg{
 			Sender: b.node.Id,
-			Epoch:  b.epoch,
+			Epoch:  msg.Epoch,
 			Value:  msg.Value,
 		}
 		if err := b.node.PlainBroadcast(ABABvalRequestMsgTag, m, nil); err != nil {
 			return err
 		}
+	}
+
+	// No need to update binValues after receiving an obsolete message
+	if msg.Epoch < b.epoch {
+		b.aLogger.Debug("receive a bval msg from an older epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
+			"msg.Epoch", msg.Epoch)
+		return nil
 	}
 
 	// When receiving n bval(b) messages from 2f+1 nodes: inputs := inputs u {b}
@@ -267,7 +289,11 @@ func (b *ABA) tryOutputAgreement() {
 	b.advanceEpoch()
 
 	estimated := b.estimated.(bool)
-	b.sentBvals = append(b.sentBvals, estimated)
+	if estimated {
+		b.sentBvals[b.epoch] = [2]bool{true, false}
+	} else {
+		b.sentBvals[b.epoch] = [2]bool{false, true}
+	}
 
 	msg := ABABvalRequestMsg{
 		Sender: b.node.Id,
@@ -300,12 +326,12 @@ func (b *ABA) tryOutputAgreement() {
 
 // countBvals counts all the received Bval inputs matching b.
 // this function must be called in a mutex-protected env
-func (b *ABA) countBvals(ok bool) int {
+func (b *ABA) countBvals(ok bool, epoch uint32) int {
 	var toCheckBval map[int]bool
 	if ok {
-		toCheckBval = b.recvTrueBval
+		toCheckBval = b.recvTrueBval[epoch]
 	} else {
-		toCheckBval = b.recvFalseBval
+		toCheckBval = b.recvFalseBval[epoch]
 	}
 
 	n := 0
@@ -318,25 +344,24 @@ func (b *ABA) countBvals(ok bool) int {
 }
 
 // hasSentBval return true if we already sent out the given value.
-func (b *ABA) hasSentBval(val bool) bool {
-	for _, ok := range b.sentBvals {
-		if ok == val {
-			return true
-		}
+func (b *ABA) hasSentBval(val bool, epoch uint32) bool {
+	sb := b.sentBvals[epoch]
+	if val {
+		return sb[0]
+	} else {
+		return sb[1]
 	}
-	return false
 }
 
 // advanceEpoch will reset all the values that are bound to an epoch and increments
 // the epoch value by 1.
 func (b *ABA) advanceEpoch() {
 	b.binValues = make(map[bool]struct{})
-	b.sentBvals = []bool{}
 	b.recvAux = make(map[int]bool)
-	b.recvTrueBval = make(map[int]bool)
-	b.recvFalseBval = make(map[int]bool)
 	b.recvParSig = [][]byte{}
 	b.epoch++
+	b.recvTrueBval[b.epoch] = make(map[int]bool)
+	b.recvFalseBval[b.epoch] = make(map[int]bool)
 }
 
 func (b *ABA) handleExitMessage(msg *ABAExitMsg) error {

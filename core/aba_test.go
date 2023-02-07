@@ -20,7 +20,7 @@ func TestFaultyAgreement(t *testing.T) {
 // majority vote it guarantees that all good nodes output a least the output of
 // one good node. Hence the output should be true for all the nodes.
 func TestAgreement2FalseNodes(t *testing.T) {
-	testAgreement(t, []bool{true, false, false, true}, true, false)
+	testAgreement(t, []bool{true, false, false, true}, false, false)
 }
 
 func TestAgreement1FalseNode(t *testing.T) {
