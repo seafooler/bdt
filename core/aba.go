@@ -131,15 +131,15 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 	if msg.Epoch > b.epoch {
 		b.aLogger.Debug("receive a bval msg from a future epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
 			"msg.Epoch", msg.Epoch)
-		b.cachedBvalMsgs[b.epoch] = append(b.cachedBvalMsgs[b.epoch], msg)
+		b.cachedBvalMsgs[msg.Epoch] = append(b.cachedBvalMsgs[msg.Epoch], msg)
 		return nil
 	}
 
 	// Need to update binValues and broadcast corresponding bvals even if receiving an obsolete message
 	if msg.Value {
-		b.recvTrueBval[b.epoch][msg.Sender] = msg.Value
+		b.recvTrueBval[msg.Epoch][msg.Sender] = msg.Value
 	} else {
-		b.recvFalseBval[b.epoch][msg.Sender] = msg.Value
+		b.recvFalseBval[msg.Epoch][msg.Sender] = msg.Value
 	}
 	lenBval := b.countBvals(msg.Value, msg.Epoch)
 

@@ -43,6 +43,6 @@ func testAgreement(t *testing.T, inputs []bool, expected bool, expectValue bool)
 		}
 	}
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
 
 }
