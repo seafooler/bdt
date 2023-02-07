@@ -167,6 +167,7 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 				return err
 			}
 		}
+		b.tryOutputAgreement()
 	}
 	return nil
 }
