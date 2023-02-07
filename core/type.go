@@ -6,6 +6,9 @@ import "reflect"
 const (
 	BoltProposalMsgTag uint8 = iota
 	BoltVoteMsgTag
+	ABABvalRequestMsgTag
+	ABAExitMsgTag
+	ABAAuxRequestMsgTag
 )
 
 type Block struct {
@@ -30,10 +33,37 @@ type ProofData struct {
 	Height int
 }
 
+// ABABvalRequestMsg holds the input value of the binary input.
+type ABABvalRequestMsg struct {
+	Sender int
+	Epoch  uint32
+	Value  bool
+}
+
+// ABAAuxRequestMsg holds the output value.
+type ABAAuxRequestMsg struct {
+	Sender int
+	Epoch  uint32
+	Value  bool
+	TSPar  []byte
+}
+
+// ABAExitMsg indicates that a replica has decided
+type ABAExitMsg struct {
+	Sender int
+	Value  bool
+}
+
 var bpMsg BoltProposalMsg
 var bvMsg BoltVoteMsg
+var ababrMsg ABABvalRequestMsg
+var abaarMsg ABAAuxRequestMsg
+var abaexMsg ABAExitMsg
 
 var reflectedTypesMap = map[uint8]reflect.Type{
-	BoltProposalMsgTag: reflect.TypeOf(bpMsg),
-	BoltVoteMsgTag:     reflect.TypeOf(bvMsg),
+	BoltProposalMsgTag:   reflect.TypeOf(bpMsg),
+	BoltVoteMsgTag:       reflect.TypeOf(bvMsg),
+	ABABvalRequestMsgTag: reflect.TypeOf(ababrMsg),
+	ABAAuxRequestMsgTag:  reflect.TypeOf(abaarMsg),
+	ABAExitMsgTag:        reflect.TypeOf(abaexMsg),
 }

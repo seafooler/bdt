@@ -12,6 +12,7 @@ import (
 type Node struct {
 	*config.Config
 	Bolt *Bolt
+	Aba  *ABA
 
 	logger hclog.Logger
 
@@ -33,6 +34,7 @@ func NewNode(conf *config.Config) *Node {
 	})
 
 	node.Bolt = NewBolt(node, 0)
+	node.Aba = NewABA(node)
 	return node
 }
 
@@ -58,6 +60,14 @@ func (n *Node) HandleMsgsLoop() {
 				go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
 			case BoltVoteMsg:
 				go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
+			//case AgreementMessage:
+			//	go n.Aba.handleMessage(&msgAsserted)
+			case ABABvalRequestMsg:
+				go n.Aba.handleBvalRequest(&msgAsserted)
+			case ABAAuxRequestMsg:
+				go n.Aba.handleAuxRequest(&msgAsserted)
+			case ABAExitMsg:
+				go n.Aba.handleExitMessage(&msgAsserted)
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}
