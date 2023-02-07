@@ -217,7 +217,7 @@ func (b *ABA) tryOutputAgreement() {
 	}
 	// Wait longer till eventually receive (N - F) aux messages.
 	lenOutputs, values := b.countAuxs()
-	if lenOutputs != b.node.N-b.node.F {
+	if lenOutputs < b.node.N-b.node.F {
 		return
 	}
 
