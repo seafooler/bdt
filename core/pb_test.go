@@ -6,7 +6,7 @@ import (
 )
 
 func TestSimpleSinglePB(t *testing.T) {
-	nodes := Setup(4, 2, 3)
+	nodes := Setup(4, 2, 9006, 3)
 
 	originalData := []byte("seafooler")
 

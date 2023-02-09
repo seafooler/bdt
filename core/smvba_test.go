@@ -8,7 +8,7 @@ import (
 
 func TestSimpleSMVBA(t *testing.T) {
 	numNode := 4
-	nodes := Setup(numNode, 2, 3)
+	nodes := Setup(numNode, 2, 9016, 3)
 
 	originalDatas := make([][]byte, numNode)
 	proofs := make([][]byte, numNode)

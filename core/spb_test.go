@@ -8,7 +8,7 @@ import (
 
 // Only replica 0 issues an SPB
 func TestSimpleSPB(t *testing.T) {
-	nodes := Setup(4, 2, 3)
+	nodes := Setup(4, 2, 9036, 3)
 
 	originalData := []byte("seafooler")
 
@@ -33,7 +33,7 @@ func TestSimpleSPB(t *testing.T) {
 // Each replica issues an SPB
 func TestParallelSPB(t *testing.T) {
 	numNode := 4
-	nodes := Setup(numNode, 2, 3)
+	nodes := Setup(numNode, 2, 9026, 3)
 
 	// broadcast data via spb
 	qcedDataChs := make([]chan SMVBAQCedData, numNode)

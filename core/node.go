@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const STATUSCOUNT = 3
+
 type Node struct {
 	*config.Config
 	Bolt  *Bolt
@@ -25,7 +27,8 @@ type Node struct {
 	paceSyncMsgsReceived map[int]struct{}
 	paceSyncMsgSent      bool
 
-	status uint8 // 0 or 1 indicates the node is in the status of bolt or aba
+	status             uint8 // 0, 1, 2 indicates the node is in the status of bolt, aba, or smvba
+	statusChangeSignal chan uint8
 
 	sync.Mutex
 }
@@ -35,6 +38,7 @@ func NewNode(conf *config.Config) *Node {
 		Config:               conf,
 		reflectedTypesMap:    reflectedTypesMap,
 		paceSyncMsgsReceived: make(map[int]struct{}),
+		statusChangeSignal:   make(chan uint8),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -134,6 +138,11 @@ func (n *Node) HandleMsgsLoop() {
 				n.paceSyncMsgSent = true
 			}
 			n.Unlock()
+		case toStatus := <-n.statusChangeSignal:
+			n.logger.Info("Receive a status change signal", "cur_status", n.status, "to_status", toStatus)
+			if (n.status+1)%STATUSCOUNT == toStatus {
+				n.status = toStatus
+			}
 		}
 	}
 }
@@ -199,7 +208,7 @@ func (n *Node) handlePaceSyncMessage(t *PaceSyncMsg) {
 
 	if len(n.paceSyncMsgsReceived) >= 2*n.F+1 && n.status == 0 {
 		n.logger.Info("Switch from Bolt to ABA after timeout being triggered")
-		n.status = 1
+		n.statusChangeSignal <- n.status + 1
 		n.Aba.inputValue(n.Bolt.maxProofedHeight)
 	}
 }

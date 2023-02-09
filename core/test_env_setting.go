@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Setup(numNode int, stat uint8, logLevel int) []*Node {
+func Setup(numNode int, stat uint8, startPort int, logLevel int) []*Node {
 	id2NameMap := make(map[int]string, numNode)
 	name2IdMap := make(map[string]int, numNode)
 	id2AddrMap := make(map[int]string, numNode)
@@ -15,7 +15,7 @@ func Setup(numNode int, stat uint8, logLevel int) []*Node {
 	for i := 0; i < numNode; i++ {
 		name := "node" + strconv.Itoa(i)
 		addr := "127.0.0.1"
-		port := strconv.Itoa(7776 + i)
+		port := strconv.Itoa(startPort + i)
 		id2NameMap[i] = name
 		name2IdMap[name] = i
 		id2AddrMap[i] = addr
