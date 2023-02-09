@@ -12,8 +12,9 @@ import (
 
 type Node struct {
 	*config.Config
-	Bolt *Bolt
-	Aba  *ABA
+	Bolt  *Bolt
+	Aba   *ABA
+	Smvba *SMVBA
 
 	logger hclog.Logger
 
@@ -44,6 +45,7 @@ func NewNode(conf *config.Config) *Node {
 
 	node.Bolt = NewBolt(node, 0)
 	node.Aba = NewABA(node)
+	node.Smvba = NewSMVBA(node)
 	return node
 }
 
@@ -88,6 +90,34 @@ func (n *Node) HandleMsgsLoop() {
 			case PaceSyncMsg:
 				n.logger.Info("Receive a pace sync message", "msg", msgAsserted)
 				go n.handlePaceSyncMessage(&msgAsserted)
+			case SMVBAPBVALMessage:
+				if n.status == 2 {
+					go n.Smvba.spb.processPBVALMsg(&msgAsserted)
+				}
+			case SMVBAPBVOTMessage:
+				if n.status == 2 {
+					go n.Smvba.spb.processPBVOTMsg(&msgAsserted)
+				}
+			case SMVBAFinishMessage:
+				if n.status == 2 {
+					go n.Smvba.HandleFinishMsg(&msgAsserted)
+				}
+			case SMVBADoneShareMessage:
+				if n.status == 2 {
+					go n.Smvba.HandleDoneShareMsg(&msgAsserted)
+				}
+			case SMVBAPreVoteMessage:
+				if n.status == 2 {
+					go n.Smvba.HandlePreVoteMsg(&msgAsserted)
+				}
+			case SMVBAVoteMessage:
+				if n.status == 2 {
+					go n.Smvba.HandleVoteMsg(&msgAsserted)
+				}
+			case SMVBAHaltMessage:
+				if n.status == 2 {
+					go n.Smvba.HandleHaltMsg(&msgAsserted)
+				}
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}

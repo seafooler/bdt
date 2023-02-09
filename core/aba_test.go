@@ -35,7 +35,7 @@ func TestAgreementGoodNodes(t *testing.T) {
 // @expectValue indicates the expected value
 func testAgreement(t *testing.T, inputs []int, expected bool, expectValue int) {
 	num_nodes := len(inputs)
-	nodes := Setup(num_nodes, 3)
+	nodes := Setup(num_nodes, 1, 3)
 
 	for i, node := range nodes {
 		if err := node.Aba.inputValue(inputs[i]); err != nil {

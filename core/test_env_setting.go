@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Setup(numNode int, logLevel int) []*Node {
+func Setup(numNode int, stat uint8, logLevel int) []*Node {
 	id2NameMap := make(map[int]string, numNode)
 	name2IdMap := make(map[string]int, numNode)
 	id2AddrMap := make(map[int]string, numNode)
@@ -31,7 +31,7 @@ func Setup(numNode int, logLevel int) []*Node {
 			shares[id], pubKey, id2AddrMap, id2PortMap, 10, logLevel, 3)
 
 		nodes[id] = NewNode(conf)
-		nodes[id].status = 1
+		nodes[id].status = stat
 	}
 
 	for _, node := range nodes {
