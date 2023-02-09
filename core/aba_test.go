@@ -13,27 +13,27 @@ import (
 // as input.
 
 func TestFaultyAgreement(t *testing.T) {
-	testAgreement(t, []bool{true, false, false, false}, true, false)
+	testAgreement(t, []int{49, 48, 48, 48}, true, 48)
 }
 
 // Test ABA with 2 false and 2 true nodes, cause binary agreement is not a
 // majority vote it guarantees that all good nodes output a least the output of
 // one good node. Hence the output should be true for all the nodes.
 func TestAgreement2FalseNodes(t *testing.T) {
-	testAgreement(t, []bool{true, false, false, true}, false, false)
+	testAgreement(t, []int{49, 48, 48, 49}, false, 0)
 }
 
 func TestAgreement1FalseNode(t *testing.T) {
-	testAgreement(t, []bool{true, false, true, true}, true, true)
+	testAgreement(t, []int{49, 48, 49, 49}, true, 49)
 }
 
 func TestAgreementGoodNodes(t *testing.T) {
-	testAgreement(t, []bool{true, true, true, true}, true, true)
+	testAgreement(t, []int{49, 49, 49, 49}, true, 49)
 }
 
 // @expected indicates if there is an expected decided value
 // @expectValue indicates the expected value
-func testAgreement(t *testing.T, inputs []bool, expected bool, expectValue bool) {
+func testAgreement(t *testing.T, inputs []int, expected bool, expectValue int) {
 	num_nodes := len(inputs)
 	nodes := Setup(num_nodes, 3)
 

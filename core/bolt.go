@@ -62,7 +62,7 @@ func (b *Bolt) ProposalLoop() {
 		}
 
 		// For testing: trigger a timeout to switch from bolt yo aba
-		if newBlock.Height == 100 {
+		if newBlock.Height == 50 {
 			return
 		}
 

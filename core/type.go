@@ -37,22 +37,22 @@ type ProofData struct {
 // ABABvalRequestMsg holds the input value of the binary input.
 type ABABvalRequestMsg struct {
 	Sender int
-	Epoch  uint32
-	Value  bool
+	Round  uint32
+	Value  int
 }
 
 // ABAAuxRequestMsg holds the output value.
 type ABAAuxRequestMsg struct {
 	Sender int
-	Epoch  uint32
-	Value  bool
+	Round  uint32
+	Value  int
 	TSPar  []byte
 }
 
 // ABAExitMsg indicates that a replica has decided
 type ABAExitMsg struct {
 	Sender int
-	Value  bool
+	Value  int
 }
 
 // PaceSyncMsg

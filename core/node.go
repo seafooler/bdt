@@ -170,6 +170,6 @@ func (n *Node) handlePaceSyncMessage(t *PaceSyncMsg) {
 	if len(n.paceSyncMsgsReceived) >= 2*n.F+1 && n.status == 0 {
 		n.logger.Info("Switch from Bolt to ABA after timeout being triggered")
 		n.status = 1
-		n.Aba.inputValue(true)
+		n.Aba.inputValue(n.Bolt.maxProofedHeight)
 	}
 }

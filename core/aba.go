@@ -14,32 +14,32 @@ type ABA struct {
 
 	aLogger hclog.Logger
 
-	// Current epoch
-	epoch uint32
+	// Current round
+	round uint32
 
-	// Bval requests we accepted this epoch.
-	binValues map[bool]struct{}
+	// Bval requests we accepted this round.
+	binValues map[int]struct{}
 
 	// sentBvals are the binary values this instance sent
 	// historical sentBvals must also be maintained due to the asynchronous network
 	sentBvals map[uint32][2]bool
 
-	// recvTrueBval is a mapping of the sender and the received true value
+	// recvOddBval is a mapping of the sender and the received odd value
 	// historical Bvals must also be maintained due to the asynchronous network
-	recvTrueBval map[uint32]map[int]bool
+	recvOddBval map[uint32]map[int]bool
 
-	// recvFalseBval is a mapping of the sender and the received false value
+	// recvEvenBval is a mapping of the sender and the received even value
 	// historical Bvals must also be maintained due to the asynchronous network
-	recvFalseBval map[uint32]map[int]bool
+	recvEvenBval map[uint32]map[int]bool
 
 	// recvAux is a mapping of the sender and the received Aux value.
-	recvAux map[int]bool
+	recvAux map[int]int
 
 	// recvParSig maintains the received partial signatures to reveal the coin
 	recvParSig [][]byte
 
 	// recvAux is a mapping of the sender and the received exitMessage value.
-	exitMsgs map[int]bool
+	exitMsgs map[int]int
 
 	// hasSentExitMsg indicates if the replica has sent the ExitMsg
 	hasSentExitMsg bool
@@ -53,7 +53,7 @@ type ABA struct {
 	output, estimated interface{}
 
 	//cachedBvalMsgs and cachedAuxMsgs cache messages that are received by a node that is
-	// in a later epoch.
+	// in a later round.
 	cachedBvalMsgs map[uint32][]*ABABvalRequestMsg
 	cachedAuxMsgs  map[uint32][]*ABAAuxRequestMsg
 
@@ -69,34 +69,34 @@ func NewABA(node *Node) *ABA {
 			Output: hclog.DefaultOutput,
 			Level:  hclog.Level(node.Config.LogLevel),
 		}),
-		epoch:          0,
-		recvTrueBval:   make(map[uint32]map[int]bool),
-		recvFalseBval:  make(map[uint32]map[int]bool),
-		recvAux:        make(map[int]bool),
-		exitMsgs:       make(map[int]bool),
+		round:          0,
+		recvOddBval:    make(map[uint32]map[int]bool),
+		recvEvenBval:   make(map[uint32]map[int]bool),
+		recvAux:        make(map[int]int),
+		exitMsgs:       make(map[int]int),
 		sentBvals:      make(map[uint32][2]bool),
-		binValues:      make(map[bool]struct{}),
+		binValues:      make(map[int]struct{}),
 		cachedBvalMsgs: make(map[uint32][]*ABABvalRequestMsg),
 		cachedAuxMsgs:  make(map[uint32][]*ABAAuxRequestMsg),
 	}
 
-	aBA.recvTrueBval[aBA.epoch] = make(map[int]bool)
-	aBA.recvFalseBval[aBA.epoch] = make(map[int]bool)
+	aBA.recvOddBval[aBA.round] = make(map[int]bool)
+	aBA.recvEvenBval[aBA.round] = make(map[int]bool)
 
 	return aBA
 }
 
 // inputValue will set the given val as the initial value to be proposed in the
 // Agreement.
-func (b *ABA) inputValue(val bool) error {
-	b.aLogger.Info("!!!!!!!!!!!!!!!!!!!! ABA is launched !!!!!!!!!!!!!!!!!!!!")
+func (b *ABA) inputValue(e int) error {
+	b.aLogger.Info("!!!!!!!!!!!!!!!!!!!! ABA is launched !!!!!!!!!!!!!!!!!!!!", "e", e)
 
-	// Make sure we are in the first epoch round.
-	if b.epoch != 0 || b.estimated != nil {
+	// Make sure we are in the first round.
+	if b.round != 0 || b.estimated != nil {
 		return nil
 	}
-	b.estimated = val
-	if val == true {
+	b.estimated = e
+	if e%2 == 0 {
 		// set the first value as true
 		b.sentBvals[0] = [2]bool{true, false}
 	} else {
@@ -105,8 +105,8 @@ func (b *ABA) inputValue(val bool) error {
 	}
 	msg := ABABvalRequestMsg{
 		Sender: b.node.Id,
-		Epoch:  b.epoch,
-		Value:  val,
+		Round:  b.round,
+		Value:  e,
 	}
 	return b.node.PlainBroadcast(ABABvalRequestMsgTag, msg, nil)
 }
@@ -117,9 +117,9 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	b.aLogger.Debug("receive an bval msg", "replica", b.node.Id, "cur_epoch", b.epoch,
-		"msg.Epoch", msg.Epoch, "msg.Value", msg.Value, "msg.Sender", msg.Sender, "trueBval", b.recvTrueBval,
-		"falseBval", b.recvFalseBval, "aux", b.recvAux, "binValues", b.binValues)
+	b.aLogger.Debug("receive an bval msg", "replica", b.node.Id, "cur_round", b.round,
+		"msg.Round", msg.Round, "msg.Value", msg.Value, "msg.Sender", msg.Sender, "oddBval", b.recvOddBval,
+		"evenBval", b.recvEvenBval, "aux", b.recvAux, "binValues", b.binValues)
 
 	if b.done {
 		if !b.print {
@@ -129,35 +129,35 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		return nil
 	}
 
-	// Messages from later epochs will be qued and processed later.
-	if msg.Epoch > b.epoch {
-		b.aLogger.Debug("receive a bval msg from a future epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
-			"msg.Epoch", msg.Epoch)
-		b.cachedBvalMsgs[msg.Epoch] = append(b.cachedBvalMsgs[msg.Epoch], msg)
+	// Messages from later rounds will be qued and processed later.
+	if msg.Round > b.round {
+		b.aLogger.Debug("receive a bval msg from a future round", "replica", b.node.Id, "cur_round", b.round,
+			"msg.Round", msg.Round)
+		b.cachedBvalMsgs[msg.Round] = append(b.cachedBvalMsgs[msg.Round], msg)
 		return nil
 	}
 
 	// Need to update binValues and broadcast corresponding bvals even if receiving an obsolete message
-	if msg.Value {
-		b.recvTrueBval[msg.Epoch][msg.Sender] = msg.Value
+	if msg.Value%2 == 1 {
+		b.recvOddBval[msg.Round][msg.Sender] = true
 	} else {
-		b.recvFalseBval[msg.Epoch][msg.Sender] = msg.Value
+		b.recvEvenBval[msg.Round][msg.Sender] = true
 	}
-	lenBval := b.countBvals(msg.Value, msg.Epoch)
+	lenBval := b.countBvals(msg.Value, msg.Round)
 
 	// When receiving input(b) messages from f + 1 nodes, if inputs(b) is not
 	// been sent yet broadcast input(b) and handle the input ourselves.
-	if lenBval == b.node.F+1 && !b.hasSentBval(msg.Value, msg.Epoch) {
-		sb := b.sentBvals[msg.Epoch]
-		if msg.Value {
+	if lenBval == b.node.F+1 && !b.hasSentBval(msg.Value, msg.Round) {
+		sb := b.sentBvals[msg.Round]
+		if msg.Value%2 == 0 {
 			sb[0] = true
 		} else {
 			sb[1] = true
 		}
-		b.sentBvals[msg.Epoch] = sb
+		b.sentBvals[msg.Round] = sb
 		m := ABABvalRequestMsg{
 			Sender: b.node.Id,
-			Epoch:  msg.Epoch,
+			Round:  msg.Round,
 			Value:  msg.Value,
 		}
 		if err := b.node.PlainBroadcast(ABABvalRequestMsgTag, m, nil); err != nil {
@@ -166,9 +166,9 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 	}
 
 	// No need to update binValues after receiving an obsolete message
-	if msg.Epoch < b.epoch {
-		b.aLogger.Debug("receive a bval msg from an older epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
-			"msg.Epoch", msg.Epoch)
+	if msg.Round < b.round {
+		b.aLogger.Debug("receive a bval msg from an older round", "replica", b.node.Id, "cur_round", b.round,
+			"msg.Round", msg.Round)
 		return nil
 	}
 
@@ -178,12 +178,12 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		b.binValues[msg.Value] = struct{}{}
 		// If inputs > 0 broadcast output(b) and handle the output ourselfs.
 		// Wait until binValues > 0, then broadcast AUX(b). The AUX(b) broadcast
-		// may only occur once per epoch.
+		// may only occur once per round.
 		if wasEmptyBinValues {
-			parSig := sign_tools.SignTSPartial(b.node.PriKeyTS, []byte(fmt.Sprint(b.epoch)))
+			parSig := sign_tools.SignTSPartial(b.node.PriKeyTS, []byte(fmt.Sprint(b.round)))
 			m := ABAAuxRequestMsg{
 				Sender: b.node.Id,
-				Epoch:  b.epoch,
+				Round:  b.round,
 				Value:  msg.Value,
 				TSPar:  parSig,
 			}
@@ -200,9 +200,9 @@ func (b *ABA) handleAuxRequest(msg *ABAAuxRequestMsg) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	b.aLogger.Debug("receive an aux msg", "replica", b.node.Id, "cur_epoch", b.epoch,
-		"msg.Epoch", msg.Epoch, "msg.Value", msg.Value, "msg.Sender", msg.Sender, "trueBval", b.recvTrueBval,
-		"falseBval", b.recvFalseBval, "aux", b.recvAux, "binValues", b.binValues)
+	b.aLogger.Debug("receive an aux msg", "replica", b.node.Id, "cur_round", b.round,
+		"msg.Round", msg.Round, "msg.Value", msg.Value, "msg.Sender", msg.Sender, "oddBval", b.recvOddBval,
+		"evenBval", b.recvEvenBval, "aux", b.recvAux, "binValues", b.binValues)
 
 	if b.done {
 		if !b.print {
@@ -212,17 +212,17 @@ func (b *ABA) handleAuxRequest(msg *ABAAuxRequestMsg) error {
 		return nil
 	}
 
-	// Ignore messages from older epochs.
-	if msg.Epoch < b.epoch {
-		b.aLogger.Debug("receive an aux msg from an older epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
-			"msg.Epoch", msg.Epoch)
+	// Ignore messages from older rounds.
+	if msg.Round < b.round {
+		b.aLogger.Debug("receive an aux msg from an older round", "replica", b.node.Id, "cur_round", b.round,
+			"msg.Round", msg.Round)
 		return nil
 	}
-	// Messages from later epochs will be qued and processed later.
-	if msg.Epoch > b.epoch {
-		b.aLogger.Debug("receive an aux msg from a future epoch", "replica", b.node.Id, "cur_epoch", b.epoch,
-			"msg.Epoch", msg.Epoch)
-		b.cachedAuxMsgs[b.epoch] = append(b.cachedAuxMsgs[b.epoch], msg)
+	// Messages from later rounds will be qued and processed later.
+	if msg.Round > b.round {
+		b.aLogger.Debug("receive an aux msg from a future round", "replica", b.node.Id, "cur_round", b.round,
+			"msg.Round", msg.Round)
+		b.cachedAuxMsgs[b.round] = append(b.cachedAuxMsgs[b.round], msg)
 		return nil
 	}
 
@@ -248,24 +248,25 @@ func (b *ABA) tryOutputAgreement() {
 	// figure out the coin
 	parSigs := b.recvParSig[:b.node.N-b.node.F]
 	intactSig := sign_tools.AssembleIntactTSPartial(parSigs, b.node.PubKeyTS,
-		[]byte(fmt.Sprint(b.epoch)), b.node.N-b.node.F, b.node.N)
+		[]byte(fmt.Sprint(b.round)), b.node.N-b.node.F, b.node.N)
 	data := binary.BigEndian.Uint64(intactSig)
-	coin := true
-	if data%2 == 1 {
-		coin = false
-	}
-	b.aLogger.Debug("assemble the data and reveal the coin", "replica", b.node.Id, "epoch", b.epoch,
+	coin := int(data % 2)
+	b.aLogger.Debug("assemble the data and reveal the coin", "replica", b.node.Id, "round", b.round,
 		"data", data, "coin", coin)
 
 	if len(values) != 1 {
-		b.estimated = coin
+		if coin == values[0]%2 {
+			b.estimated = values[0]
+		} else {
+			b.estimated = values[1]
+		}
 	} else {
 		b.estimated = values[0]
-		// Output may be set only once.
-		if b.output == nil && values[0] == coin {
+		// Output can be set only once.
+		if b.output == nil && values[0]%2 == coin {
 			b.output = values[0]
 			b.aLogger.Info("output the agreed value", "replica", b.node.Id, "value", values[0],
-				"epoch", b.epoch)
+				"round", b.round)
 			b.hasSentExitMsg = true
 			msg := ABAExitMsg{
 				Sender: b.node.Id,
@@ -285,85 +286,79 @@ func (b *ABA) tryOutputAgreement() {
 		return
 	}
 
-	// Start the next epoch.
-	b.aLogger.Debug("advancing to the next epoch after receiving aux messages", "replica", b.node.Id,
-		"next_epoch", b.epoch+1, "aux_msg_count", lenOutputs)
-	b.advanceEpoch()
+	// Start the next round.
+	b.aLogger.Debug("advancing to the next round after receiving aux messages", "replica", b.node.Id,
+		"next_round", b.round+1, "aux_msg_count", lenOutputs)
+	b.advanceRound()
 
-	estimated := b.estimated.(bool)
-	if estimated {
-		b.sentBvals[b.epoch] = [2]bool{true, false}
+	estimated := b.estimated.(int)
+	if estimated%2 == 0 {
+		b.sentBvals[b.round] = [2]bool{true, false}
 	} else {
-		b.sentBvals[b.epoch] = [2]bool{false, true}
+		b.sentBvals[b.round] = [2]bool{false, true}
 	}
 
 	msg := ABABvalRequestMsg{
 		Sender: b.node.Id,
-		Epoch:  b.epoch,
+		Round:  b.round,
 		Value:  estimated,
 	}
 	if err := b.node.PlainBroadcast(ABABvalRequestMsgTag, msg, nil); err != nil {
 		b.aLogger.Error(err.Error(), "replica", b.node.Id)
 	}
 
-	// process the cached messages for the next epoch.
-	if cachedBvalMsgs, ok := b.cachedBvalMsgs[b.epoch]; ok {
+	// process the cached messages for the next round.
+	if cachedBvalMsgs, ok := b.cachedBvalMsgs[b.round]; ok {
 		for _, cm := range cachedBvalMsgs {
 			go func(m *ABABvalRequestMsg) {
 				b.handleBvalRequest(m)
 			}(cm)
 		}
 	}
-	delete(b.cachedBvalMsgs, b.epoch)
+	delete(b.cachedBvalMsgs, b.round)
 
-	if cachedAuxMsgs, ok := b.cachedAuxMsgs[b.epoch]; ok {
+	if cachedAuxMsgs, ok := b.cachedAuxMsgs[b.round]; ok {
 		for _, cm := range cachedAuxMsgs {
 			go func(m *ABAAuxRequestMsg) {
 				b.handleAuxRequest(m)
 			}(cm)
 		}
 	}
-	delete(b.cachedAuxMsgs, b.epoch)
+	delete(b.cachedAuxMsgs, b.round)
 }
 
 // countBvals counts all the received Bval inputs matching b.
 // this function must be called in a mutex-protected env
-func (b *ABA) countBvals(ok bool, epoch uint32) int {
+func (b *ABA) countBvals(e int, round uint32) int {
 	var toCheckBval map[int]bool
-	if ok {
-		toCheckBval = b.recvTrueBval[epoch]
+	if e%2 == 1 {
+		toCheckBval = b.recvOddBval[round]
 	} else {
-		toCheckBval = b.recvFalseBval[epoch]
+		toCheckBval = b.recvEvenBval[round]
 	}
 
-	n := 0
-	for _, val := range toCheckBval {
-		if val == ok {
-			n++
-		}
-	}
-	return n
+	return len(toCheckBval)
 }
 
 // hasSentBval return true if we already sent out the given value.
-func (b *ABA) hasSentBval(val bool, epoch uint32) bool {
-	sb := b.sentBvals[epoch]
-	if val {
+func (b *ABA) hasSentBval(e int, round uint32) bool {
+	sb := b.sentBvals[round]
+	if e%2 == 0 {
 		return sb[0]
 	} else {
 		return sb[1]
 	}
 }
 
-// advanceEpoch will reset all the values that are bound to an epoch and increments
-// the epoch value by 1.
-func (b *ABA) advanceEpoch() {
-	b.binValues = make(map[bool]struct{})
-	b.recvAux = make(map[int]bool)
+// advanceRound will reset all the values that are bound to a round and increments
+// the round value by 1.
+func (b *ABA) advanceRound() {
+	b.binValues = make(map[int]struct{})
+	b.recvAux = make(map[int]int)
 	b.recvParSig = [][]byte{}
-	b.epoch++
-	b.recvTrueBval[b.epoch] = make(map[int]bool)
-	b.recvFalseBval[b.epoch] = make(map[int]bool)
+	b.round++
+	b.recvOddBval[b.round] = make(map[int]bool)
+	b.recvEvenBval[b.round] = make(map[int]bool)
 }
 
 func (b *ABA) handleExitMessage(msg *ABAExitMsg) error {
@@ -394,7 +389,7 @@ func (b *ABA) handleExitMessage(msg *ABAExitMsg) error {
 	if lenEM == 2*b.node.F+1 {
 		if b.output == nil {
 			b.aLogger.Info("output the agreed value after receiving 2f+1 exit msgs", "replica", b.node.Id,
-				"value", msg.Value, "epoch", b.epoch)
+				"value", msg.Value, "round", b.round)
 			b.output = msg.Value
 		}
 		b.done = true
@@ -404,10 +399,10 @@ func (b *ABA) handleExitMessage(msg *ABAExitMsg) error {
 
 // countExitMessages counts all the exitMessages matching v.
 // this function must be called in a mutex-protected env
-func (b *ABA) countExitMessages(v bool) int {
+func (b *ABA) countExitMessages(e int) int {
 	n := 0
 	for _, val := range b.exitMsgs {
-		if val == v {
+		if val == e {
 			n++
 		}
 	}
@@ -416,8 +411,8 @@ func (b *ABA) countExitMessages(v bool) int {
 
 // countAuxs returns the number of received (aux) messages, the corresponding
 // values that where also in our inputs.
-func (b *ABA) countAuxs() (int, []bool) {
-	valsMap := make(map[bool]struct{})
+func (b *ABA) countAuxs() (int, []int) {
+	valsMap := make(map[int]struct{})
 	numQualifiedAux := 0
 	for _, val := range b.recvAux {
 		if _, ok := b.binValues[val]; ok {
@@ -426,7 +421,7 @@ func (b *ABA) countAuxs() (int, []bool) {
 		}
 	}
 
-	var valsSet []bool
+	var valsSet []int
 	for val, _ := range valsMap {
 		valsSet = append(valsSet, val)
 	}

@@ -31,6 +31,7 @@ func Setup(numNode int, logLevel int) []*Node {
 			shares[id], pubKey, id2AddrMap, id2PortMap, 10, logLevel, 3)
 
 		nodes[id] = NewNode(conf)
+		nodes[id].status = 1
 	}
 
 	for _, node := range nodes {
