@@ -21,8 +21,8 @@ type Node struct {
 
 	trans *conn.NetworkTransport
 
-	timeoutMsgsReceived map[int]struct{}
-	timeoutMsgSent      bool
+	paceSyncMsgsReceived map[int]struct{}
+	paceSyncMsgSent      bool
 
 	status uint8 // 0 or 1 indicates the node is in the status of bolt or aba
 
@@ -31,9 +31,9 @@ type Node struct {
 
 func NewNode(conf *config.Config) *Node {
 	node := &Node{
-		Config:              conf,
-		reflectedTypesMap:   reflectedTypesMap,
-		timeoutMsgsReceived: make(map[int]struct{}),
+		Config:               conf,
+		reflectedTypesMap:    reflectedTypesMap,
+		paceSyncMsgsReceived: make(map[int]struct{}),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -85,9 +85,9 @@ func (n *Node) HandleMsgsLoop() {
 				if n.status == 1 {
 					go n.Aba.handleExitMessage(&msgAsserted)
 				}
-			case TimeoutMsg:
-				n.logger.Info("Receive a timeout message", "msg", msgAsserted)
-				go n.handleTimeoutMessage(&msgAsserted)
+			case PaceSyncMsg:
+				n.logger.Info("Receive a pace sync message", "msg", msgAsserted)
+				go n.handlePaceSyncMessage(&msgAsserted)
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}
@@ -98,10 +98,10 @@ func (n *Node) HandleMsgsLoop() {
 				continue
 				n.Unlock()
 			}
-			if !n.timeoutMsgSent {
-				n.logger.Info("Broadcast a timeout message")
-				go n.PlainBroadcast(TimeoutMsgTag, TimeoutMsg{Sender: n.Id}, nil)
-				n.timeoutMsgSent = true
+			if !n.paceSyncMsgSent {
+				n.logger.Info("Broadcast a pace sync message")
+				go n.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{Sender: n.Id, Epoch: n.Bolt.maxProofedHeight}, nil)
+				n.paceSyncMsgSent = true
 			}
 			n.Unlock()
 		}
@@ -154,18 +154,20 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 	return nil
 }
 
-func (n *Node) handleTimeoutMessage(t *TimeoutMsg) {
+func (n *Node) handlePaceSyncMessage(t *PaceSyncMsg) {
 	n.Lock()
 	defer n.Unlock()
-	n.timeoutMsgsReceived[t.Sender] = struct{}{}
-	if len(n.timeoutMsgsReceived) >= n.F+1 && !n.timeoutMsgSent {
+	n.paceSyncMsgsReceived[t.Sender] = struct{}{}
+	/* No amplification process of pace sync messages
+	if len(n.paceSyncMsgsReceived) >= n.F+1 && !n.paceSyncMsgSent {
 		n.logger.Info("Broadcast a timeout message")
-		go n.PlainBroadcast(TimeoutMsgTag, TimeoutMsg{Sender: n.Id}, nil)
+		go n.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{Sender: n.Id, Epoch: n.Bolt.maxProofedHeight}, nil)
 	}
 
-	n.timeoutMsgSent = true
+	n.paceSyncMsgSent = true
+	*/
 
-	if len(n.timeoutMsgsReceived) >= 2*n.F+1 && n.status == 0 {
+	if len(n.paceSyncMsgsReceived) >= 2*n.F+1 && n.status == 0 {
 		n.logger.Info("Switch from Bolt to ABA after timeout being triggered")
 		n.status = 1
 		n.Aba.inputValue(true)

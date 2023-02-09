@@ -12,11 +12,12 @@ type Bolt struct {
 	bLogger  hclog.Logger
 	leaderId int
 
-	committedHeight int
-	proofedHeight   map[int]bool
-	cachedHeight    map[int]bool
-	cachedVoteMsgs  map[int]map[int][]byte
-	cachedBlocks    map[int]*Block
+	committedHeight  int
+	maxProofedHeight int
+	proofedHeight    map[int]bool
+	cachedHeight     map[int]bool
+	cachedVoteMsgs   map[int]map[int][]byte
+	cachedBlocks     map[int]*Block
 
 	proofReady chan ProofData
 	sync.Mutex
@@ -116,6 +117,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 
 		b.Lock()
 		b.proofedHeight[pBlk.Height] = true
+		b.maxProofedHeight = pBlk.Height
 		delete(b.cachedHeight, pBlk.Height)
 		b.Unlock()
 
