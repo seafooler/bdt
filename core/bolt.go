@@ -254,7 +254,7 @@ func (b *Bolt) handlePaceSyncMessage(t *PaceSyncMsg) {
 		go b.node.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{SN: t.SN, Sender: b.node.Id, Epoch: b.node.Bolt.maxProofedHeight}, nil)
 	}
 
-	if len(b.paceSyncMsgsReceived) >= 2*b.node.F+1 && b.node.status == 0 {
+	if len(b.paceSyncMsgsReceived) == 2*b.node.F+1 && b.node.status == 0 {
 		b.bLogger.Info("Switch from Bolt to ABA after timeout being triggered")
 		go func() {
 			b.node.statusChangeSignal <- StatusChangeSignal{
