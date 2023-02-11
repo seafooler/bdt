@@ -22,7 +22,7 @@ func TestSimpleSMVBA(t *testing.T) {
 		if i == 3 {
 			time.Sleep(time.Millisecond * 100)
 		}
-		go node.Smvba.RunOneMVBAView(false, originalDatas[i], proofs[i], SMVBASNView{0, -1})
+		go node.Smvba.RunOneMVBAView(false, originalDatas[i], proofs[i], -1)
 	}
 
 	go func() {
@@ -40,5 +40,5 @@ func TestSimpleSMVBA(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 6)
 }

@@ -35,23 +35,27 @@ type Block struct {
 }
 
 type BoltProposalMsg struct {
+	SN int
 	Block
 	Proof []byte
 }
 
 type BoltVoteMsg struct {
+	SN     int
 	Share  []byte
 	Height int
 	Voter  int
 }
 
 type ProofData struct {
+	SN     int
 	Proof  []byte
 	Height int
 }
 
 // ABABvalRequestMsg holds the input value of the binary input.
 type ABABvalRequestMsg struct {
+	SN     int
 	Sender int
 	Round  uint32
 	Value  int
@@ -59,6 +63,7 @@ type ABABvalRequestMsg struct {
 
 // ABAAuxRequestMsg holds the output value.
 type ABAAuxRequestMsg struct {
+	SN     int
 	Sender int
 	Round  uint32
 	Value  int
@@ -67,74 +72,78 @@ type ABAAuxRequestMsg struct {
 
 // ABAExitMsg indicates that a replica has decided
 type ABAExitMsg struct {
+	SN     int
 	Sender int
 	Value  int
 }
 
 // PaceSyncMsg
 type PaceSyncMsg struct {
+	SN     int
 	Sender int
 	Epoch  int
 	Proof  []byte
 }
 
-type SMVBASNView struct {
-	SN   int
-	View int
-}
-
-type SMVBASNViewPhase struct {
-	SMVBASNView
+type SMVBAViewPhase struct {
+	View  int
 	Phase uint8 // phase can only be 1 or 2
 }
 
 type SMVBAPBVALMessage struct {
+	SN     int
 	Data   []byte
 	Proof  []byte
 	Dealer string // dealer and sender are the same
-	SMVBASNViewPhase
+	SMVBAViewPhase
 }
 
 type SMVBAPBVOTMessage struct {
+	SN         int
 	Data       []byte
 	PartialSig []byte
 	Dealer     string
 	Sender     string
-	SMVBASNViewPhase
+	SMVBAViewPhase
 }
 
 type SMVBAQCedData struct {
+	SN   int
 	Data []byte
 	QC   []byte
-	SMVBASNViewPhase
+	SMVBAViewPhase
 }
 
 type SMVBAFinishMessage struct {
+	SN     int
 	Data   []byte
 	QC     []byte
 	Dealer string
-	SMVBASNView
+	View   int
 }
 
 type SMVBADoneShareMessage struct {
+	SN      int
 	TSShare []byte
 	Sender  string
-	SMVBASNView
+	View    int
 }
 
 // SMVBAPreVoteMessage must contain SNView
 type SMVBAPreVoteMessage struct {
+	SN                int
 	Flag              bool
 	Dealer            string
 	Value             []byte
 	ProofOrPartialSig []byte // lock proof (sigma_1) or rho_{pn}
 	Sender            string
 
-	SMVBASNView
+	View int
 }
 
 // SMVBAVoteMessage must contain SNView
 type SMVBAVoteMessage struct {
+	SN     int
 	Flag   bool
 	Dealer string
 	Value  []byte
@@ -143,20 +152,27 @@ type SMVBAVoteMessage struct {
 
 	Sender string
 
-	SMVBASNView
+	View int
 }
 
 type SMVBAHaltMessage struct {
+	SN     int
 	Value  []byte
 	Proof  []byte
 	Dealer string
-	SMVBASNView
+	View   int
 }
 
 type SMVBAReadyViewData struct {
+	SN          int
 	usePrevData bool // indicate if using the previous data
 	data        []byte
 	proof       []byte
+}
+
+type StatusChangeSignal struct {
+	SN     int
+	Status uint8
 }
 
 var bpMsg BoltProposalMsg
@@ -165,13 +181,13 @@ var ababrMsg ABABvalRequestMsg
 var abaarMsg ABAAuxRequestMsg
 var abaexMsg ABAExitMsg
 var psMsg PaceSyncMsg
-var pbValMsg SMVBAPBVALMessage
-var pbVoteMsg SMVBAPBVOTMessage
-var finishMsg SMVBAFinishMessage
-var doneShareMsg SMVBADoneShareMessage
-var preVoteMsg SMVBAPreVoteMessage
-var voteMsg SMVBAVoteMessage
-var haltMsg SMVBAHaltMessage
+var smvbaPbValMsg SMVBAPBVALMessage
+var smvbaPbVoteMsg SMVBAPBVOTMessage
+var smvbaFinishMsg SMVBAFinishMessage
+var smvbaDoneShareMsg SMVBADoneShareMessage
+var smvbaPreVoteMsg SMVBAPreVoteMessage
+var smvbaVoteMsg SMVBAVoteMessage
+var smvbaHaltMsg SMVBAHaltMessage
 
 var reflectedTypesMap = map[uint8]reflect.Type{
 	BoltProposalMsgTag:   reflect.TypeOf(bpMsg),
@@ -180,11 +196,11 @@ var reflectedTypesMap = map[uint8]reflect.Type{
 	ABAAuxRequestMsgTag:  reflect.TypeOf(abaarMsg),
 	ABAExitMsgTag:        reflect.TypeOf(abaexMsg),
 	PaceSyncMsgTag:       reflect.TypeOf(psMsg),
-	SMVBAPBValTag:        reflect.TypeOf(pbValMsg),
-	SMVBAPBVoteTag:       reflect.TypeOf(pbVoteMsg),
-	SMVBAFinishTag:       reflect.TypeOf(finishMsg),
-	SMVBADoneShareTag:    reflect.TypeOf(doneShareMsg),
-	SMVBAPreVoteTag:      reflect.TypeOf(preVoteMsg),
-	SMVBAVoteTag:         reflect.TypeOf(voteMsg),
-	SMVBAHaltTag:         reflect.TypeOf(haltMsg),
+	SMVBAPBValTag:        reflect.TypeOf(smvbaPbValMsg),
+	SMVBAPBVoteTag:       reflect.TypeOf(smvbaPbVoteMsg),
+	SMVBAFinishTag:       reflect.TypeOf(smvbaFinishMsg),
+	SMVBADoneShareTag:    reflect.TypeOf(smvbaDoneShareMsg),
+	SMVBAPreVoteTag:      reflect.TypeOf(smvbaPreVoteMsg),
+	SMVBAVoteTag:         reflect.TypeOf(smvbaVoteMsg),
+	SMVBAHaltTag:         reflect.TypeOf(smvbaHaltMsg),
 }

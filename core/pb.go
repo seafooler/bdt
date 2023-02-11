@@ -22,9 +22,6 @@ type PB struct {
 	dataToPB    []byte
 	partialSigs [][]byte
 
-	//delayedVALMsgs []*PBVALMessage
-	//delayedTOVMsgs []*PBVOTMessage
-
 	mux sync.RWMutex
 }
 
@@ -35,7 +32,7 @@ func NewPB(s *SPB, id uint8) *PB {
 	}
 }
 
-func (pb *PB) PBBroadcastData(data, proof []byte, sn, view int, phase uint8) error {
+func (pb *PB) PBBroadcastData(data, proof []byte, view int, phase uint8) error {
 	qcdChan := make(chan SMVBAQCedData)
 
 	pb.mux.Lock()
@@ -49,14 +46,12 @@ func (pb *PB) PBBroadcastData(data, proof []byte, sn, view int, phase uint8) err
 	pb.dataToPB = data          // Each time a data is broadcast via pb, update the dataToPB
 
 	valMsg := SMVBAPBVALMessage{
+		SN:     pb.spb.s.node.sn,
 		Data:   data,
 		Proof:  proof,
 		Dealer: pb.spb.s.node.Name,
-		SMVBASNViewPhase: SMVBASNViewPhase{
-			SMVBASNView: SMVBASNView{
-				SN:   sn,
-				View: view,
-			},
+		SMVBAViewPhase: SMVBAViewPhase{
+			View:  view,
 			Phase: phase,
 		},
 	}
@@ -70,7 +65,7 @@ func (pb *PB) PBBroadcastData(data, proof []byte, sn, view int, phase uint8) err
 
 func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 	pb.spb.s.logger.Debug("handlePBVALMsg is called", "replica", pb.spb.s.node.Name,
-		"snv", valMsg.SMVBASNView, "Dealer", valMsg.Dealer)
+		"sn", valMsg.SN, "view", valMsg.View, "pbid", valMsg.Phase, "Dealer", valMsg.Dealer)
 
 	dealerID := pb.spb.s.node.Name2IdMap[valMsg.Dealer]
 	addrPort := pb.spb.s.node.Id2AddrMap[dealerID] + ":" + pb.spb.s.node.Id2PortMap[dealerID]
@@ -78,11 +73,12 @@ func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 	// TODO: should sign over the data plus SNView rather than the only data
 	partialSig := sign_tools.SignTSPartial(pb.spb.s.node.PriKeyTS, valMsg.Data)
 	votMsg := SMVBAPBVOTMessage{
-		PartialSig:       partialSig,
-		Dealer:           valMsg.Dealer,
-		Sender:           pb.spb.s.node.Name,
-		SMVBASNViewPhase: valMsg.SMVBASNViewPhase,
-		Data:             valMsg.Data,
+		SN:             valMsg.SN,
+		PartialSig:     partialSig,
+		Dealer:         valMsg.Dealer,
+		Sender:         pb.spb.s.node.Name,
+		SMVBAViewPhase: valMsg.SMVBAViewPhase,
+		Data:           valMsg.Data,
 	}
 
 	go pb.spb.s.node.SendMsg(SMVBAPBVoteTag, votMsg, nil, addrPort)
@@ -91,21 +87,13 @@ func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 
 func (pb *PB) handlePBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 	pb.spb.s.node.logger.Debug("HandlePBVOTMsg is called", "replica", pb.spb.s.node.Name,
-		"pb.spb.node.snv", pb.spb.s.snv, "snv", votMsg.SMVBASNView, "id", pb.id, "sender",
-		votMsg.Sender, "data", string(votMsg.Data))
+		"node.SN", pb.spb.s.node.sn, "node.view", pb.spb.s.view, "sn", votMsg.SN, "view", votMsg.View,
+		"id", pb.id, "sender", votMsg.Sender, "data", string(votMsg.Data))
 	pb.mux.Lock()
 	defer pb.mux.Unlock()
 
-	// check again if sn and view is right
-	// if receiving a vote message from a previous sn
-	// a message with same sn but with a previous view will be considered in the next check,
-	// since the previous view must be abandoned
-	if votMsg.SN < pb.spb.s.snv.SN {
-		return nil
-	}
-
 	// Check if the SPBs in this view are abandoned
-	if pb.spb.s.snv.SN == votMsg.SN && pb.spb.s.abandon[votMsg.View] {
+	if pb.spb.s.abandon[votMsg.View] {
 		return nil
 	}
 
@@ -116,9 +104,10 @@ func (pb *PB) handlePBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 			votMsg.Data, pb.spb.s.node.N-pb.spb.s.node.F, pb.spb.s.node.N)
 
 		qcedData := SMVBAQCedData{
-			Data:             pb.dataToPB,
-			QC:               intactSig,
-			SMVBASNViewPhase: votMsg.SMVBASNViewPhase,
+			SN:             votMsg.SN,
+			Data:           pb.dataToPB,
+			QC:             intactSig,
+			SMVBAViewPhase: votMsg.SMVBAViewPhase,
 		}
 
 		pb.pbOutputCh <- qcedData

@@ -10,7 +10,7 @@ func TestSimpleSinglePB(t *testing.T) {
 
 	originalData := []byte("seafooler")
 
-	if err := nodes[0].Smvba.spb.pb1.PBBroadcastData(originalData, nil, 1, 0, 1); err != nil {
+	if err := nodes[0].Smvba.spb.pb1.PBBroadcastData(originalData, nil, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 

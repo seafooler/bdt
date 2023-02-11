@@ -14,6 +14,7 @@ const STATUSCOUNT = 3
 
 type Node struct {
 	*config.Config
+	sn    int
 	Bolt  *Bolt
 	Aba   *ABA
 	Smvba *SMVBA
@@ -24,21 +25,20 @@ type Node struct {
 
 	trans *conn.NetworkTransport
 
-	paceSyncMsgsReceived map[int]struct{}
-	paceSyncMsgSent      bool
-
 	status             uint8 // 0, 1, 2 indicates the node is in the status of bolt, aba, or smvba
-	statusChangeSignal chan uint8
+	statusChangeSignal chan StatusChangeSignal
+
+	cachedMsgs map[int][3][]interface{} // cache the messages arrived in advance
 
 	sync.Mutex
 }
 
 func NewNode(conf *config.Config) *Node {
 	node := &Node{
-		Config:               conf,
-		reflectedTypesMap:    reflectedTypesMap,
-		paceSyncMsgsReceived: make(map[int]struct{}),
-		statusChangeSignal:   make(chan uint8),
+		Config:             conf,
+		reflectedTypesMap:  reflectedTypesMap,
+		statusChangeSignal: make(chan StatusChangeSignal),
+		cachedMsgs:         make(map[int][3][]interface{}),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -72,79 +72,171 @@ func (n *Node) HandleMsgsLoop() {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
-				if n.status == 0 {
+				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
 				}
 			case BoltVoteMsg:
-				if n.status == 0 {
+				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
 				}
+			case PaceSyncMsg:
+				n.logger.Debug("Receive a pace sync message", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
+					go n.Bolt.handlePaceSyncMessage(&msgAsserted)
+				}
 			case ABABvalRequestMsg:
-				if n.status == 1 {
+				if n.processItNow(msgAsserted.SN, 1, msgAsserted) {
 					go n.Aba.handleBvalRequest(&msgAsserted)
 				}
 			case ABAAuxRequestMsg:
-				if n.status == 1 {
+				if n.processItNow(msgAsserted.SN, 1, msgAsserted) {
 					go n.Aba.handleAuxRequest(&msgAsserted)
 				}
 			case ABAExitMsg:
-				if n.status == 1 {
+				if n.processItNow(msgAsserted.SN, 1, msgAsserted) {
 					go n.Aba.handleExitMessage(&msgAsserted)
 				}
-			case PaceSyncMsg:
-				n.logger.Info("Receive a pace sync message", "msg", msgAsserted)
-				go n.handlePaceSyncMessage(&msgAsserted)
 			case SMVBAPBVALMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBAPBVALMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.spb.processPBVALMsg(&msgAsserted)
 				}
 			case SMVBAPBVOTMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBAPBVOTMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.spb.processPBVOTMsg(&msgAsserted)
 				}
 			case SMVBAFinishMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBAFinishMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandleFinishMsg(&msgAsserted)
 				}
 			case SMVBADoneShareMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBADoneShareMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandleDoneShareMsg(&msgAsserted)
 				}
 			case SMVBAPreVoteMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBAPreVoteMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandlePreVoteMsg(&msgAsserted)
 				}
 			case SMVBAVoteMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBAVoteMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandleVoteMsg(&msgAsserted)
 				}
 			case SMVBAHaltMessage:
-				if n.status == 2 {
+				n.logger.Debug("Receive SMVBAHaltMessage", "msg", msgAsserted)
+				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandleHaltMsg(&msgAsserted)
 				}
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}
 		case <-time.After(time.Second * time.Duration(n.Timeout)):
+			n.logger.Info("timeout ...........................")
 			n.Lock()
+			n.logger.Info("Acquire the lock in timeout ...........................", "n.status", n.status)
 			// timeout only works when the node is in Bolt
 			if n.status != 0 {
-				continue
 				n.Unlock()
+				continue
 			}
-			if !n.paceSyncMsgSent {
-				n.logger.Info("Broadcast a pace sync message")
-				go n.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{Sender: n.Id, Epoch: n.Bolt.maxProofedHeight}, nil)
-				n.paceSyncMsgSent = true
+			go n.Bolt.TriggerPaceSync()
+			n.Unlock()
+		case scs := <-n.statusChangeSignal:
+			n.logger.Info("Receive a status change signal", "cur_status", n.status, "to_status", scs.Status)
+			n.Lock()
+			if scs.SN != n.sn {
+				continue
+			}
+			if (n.status+1)%STATUSCOUNT == scs.Status {
+				n.status = scs.Status
+				switch n.status {
+				case 1:
+					n.Aba = NewABA(n)
+					n.restoreMessages(1)
+					go n.Aba.inputValue(n.Bolt.maxProofedHeight)
+				case 2:
+					n.Smvba = NewSMVBA(n)
+					n.restoreMessages(2)
+					go n.Smvba.RunOneMVBAView(false, []byte("Test!"), nil, -1)
+				case 0:
+					n.sn = n.sn + 1
+					lastBoltCommittedHeight := n.Bolt.committedHeight
+					n.Bolt = NewBolt(n, 0)
+					n.restoreMessages(0)
+					go n.Bolt.ProposalLoop(lastBoltCommittedHeight + 4) // multiples of 50
+				}
 			}
 			n.Unlock()
-		case toStatus := <-n.statusChangeSignal:
-			n.logger.Info("Receive a status change signal", "cur_status", n.status, "to_status", toStatus)
-			if (n.status+1)%STATUSCOUNT == toStatus {
-				n.status = toStatus
-			}
 		}
 	}
+}
+
+// processItNow caches messages from the future SNs or stages or ignore obsolete messages
+// processItNow must be called in a concurrent-safe environment
+func (n *Node) processItNow(msgSN int, msgStatus uint8, msg interface{}) bool {
+	if msgSN > n.sn || (msgSN == n.sn && msgStatus > n.status) {
+		if _, ok := n.cachedMsgs[msgSN]; !ok {
+			n.cachedMsgs[msgSN] = [3][]interface{}{}
+		}
+		cache := n.cachedMsgs[msgSN]
+		cache[msgStatus] = append(cache[msgStatus], msg)
+		n.cachedMsgs[msgSN] = cache
+		return false
+	}
+
+	if msgSN < n.sn || (msgSN == n.sn && msgStatus < n.status) {
+		// if receiving an obsolete message, ignore it
+		return false
+	}
+
+	return true
+}
+
+// restoreMessages process the cached messages from cachedMsgs
+// restoreMessages must be called in a concurrent-safe environment
+func (n *Node) restoreMessages(status uint8) {
+	if _, ok := n.cachedMsgs[n.sn]; !ok {
+		return
+	}
+	msgs := n.cachedMsgs[n.sn][status]
+	for _, msg := range msgs {
+		switch msgAsserted := msg.(type) {
+		case BoltProposalMsg:
+			go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
+		case BoltVoteMsg:
+			go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
+		case PaceSyncMsg:
+			go n.Bolt.handlePaceSyncMessage(&msgAsserted)
+		case ABABvalRequestMsg:
+			go n.Aba.handleBvalRequest(&msgAsserted)
+		case ABAAuxRequestMsg:
+			go n.Aba.handleAuxRequest(&msgAsserted)
+		case ABAExitMsg:
+			go n.Aba.handleExitMessage(&msgAsserted)
+		case SMVBAPBVALMessage:
+			go n.Smvba.spb.processPBVALMsg(&msgAsserted)
+		case SMVBAPBVOTMessage:
+			go n.Smvba.spb.processPBVOTMsg(&msgAsserted)
+		case SMVBAFinishMessage:
+			go n.Smvba.HandleFinishMsg(&msgAsserted)
+		case SMVBADoneShareMessage:
+			go n.Smvba.HandleDoneShareMsg(&msgAsserted)
+		case SMVBAPreVoteMessage:
+			go n.Smvba.HandlePreVoteMsg(&msgAsserted)
+		case SMVBAVoteMessage:
+			go n.Smvba.HandleVoteMsg(&msgAsserted)
+		case SMVBAHaltMessage:
+			go n.Smvba.HandleHaltMsg(&msgAsserted)
+			break
+		}
+	}
+	cache := n.cachedMsgs[n.sn]
+	cache[status] = []interface{}{}
+	n.cachedMsgs[n.sn] = cache
 }
 
 // EstablishP2PConns establishes P2P connections with other nodes.
@@ -191,24 +283,4 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 		}
 	}
 	return nil
-}
-
-func (n *Node) handlePaceSyncMessage(t *PaceSyncMsg) {
-	n.Lock()
-	defer n.Unlock()
-	n.paceSyncMsgsReceived[t.Sender] = struct{}{}
-	/* No amplification process of pace sync messages
-	if len(n.paceSyncMsgsReceived) >= n.F+1 && !n.paceSyncMsgSent {
-		n.logger.Info("Broadcast a timeout message")
-		go n.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{Sender: n.Id, Epoch: n.Bolt.maxProofedHeight}, nil)
-	}
-
-	n.paceSyncMsgSent = true
-	*/
-
-	if len(n.paceSyncMsgsReceived) >= 2*n.F+1 && n.status == 0 {
-		n.logger.Info("Switch from Bolt to ABA after timeout being triggered")
-		n.statusChangeSignal <- n.status + 1
-		n.Aba.inputValue(n.Bolt.maxProofedHeight)
-	}
 }

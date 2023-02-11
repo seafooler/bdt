@@ -25,9 +25,9 @@ func NewSPB(s *SMVBA) *SPB {
 
 }
 
-func (spb *SPB) SPBBroadcastData(rawData, proof []byte, sn, view int) (chan SMVBAQCedData, error) {
+func (spb *SPB) SPBBroadcastData(rawData, proof []byte, view int) (chan SMVBAQCedData, error) {
 	// Invoke the 1st PB
-	if err := spb.pb1.PBBroadcastData(rawData, proof, sn, view, 1); err != nil {
+	if err := spb.pb1.PBBroadcastData(rawData, proof, view, 1); err != nil {
 		return nil, err
 	}
 
@@ -35,21 +35,24 @@ func (spb *SPB) SPBBroadcastData(rawData, proof []byte, sn, view int) (chan SMVB
 	// Fix: never mind, the node will stop this SPB once receiving the stopCh in node.RunOneMVBAView() method
 	outputFrom1PB := <-spb.pb1.pbOutputCh
 
+	spb.s.logger.Debug("receive message from pbOutputCh", "replica", spb.s.node.Name,
+		"outputFrom1PB", outputFrom1PB)
+
 	// Invoke the 2nd PB
-	if err := spb.pb2.PBBroadcastData(rawData, outputFrom1PB.QC, sn, view, 2); err != nil {
+	if err := spb.pb2.PBBroadcastData(rawData, outputFrom1PB.QC, view, 2); err != nil {
 		return nil, err
 	}
-
+	
 	return spb.pb2.pbOutputCh, nil
 }
 
 func (spb *SPB) processPBVALMsg(valMsg *SMVBAPBVALMessage) error {
 	spb.s.logger.Debug("processPBVALMsg is called", "replica", spb.s.node.Name,
-		"snv", valMsg.SMVBASNView, "Dealer", valMsg.Dealer)
+		"sn", valMsg.SN, "view", valMsg.View, "Dealer", valMsg.Dealer)
 
 	// Check if output has been decided
 	// This check need not wrapping with a lock, since it is used to accelerate stopping without sacrificing safety
-	if valMsg.SN == spb.s.snv.SN && spb.s.output != nil {
+	if spb.s.output != nil {
 		spb.s.logger.Debug("handlePBVALMsg is called, but output has been decided", "replica", spb.s.node.Name,
 			"output", string(spb.s.output))
 		return nil
@@ -57,13 +60,9 @@ func (spb *SPB) processPBVALMsg(valMsg *SMVBAPBVALMessage) error {
 
 	spb.s.Lock()
 	defer spb.s.Unlock()
-	// if receiving a val message from a previous sn
-	if valMsg.SN < spb.s.snv.SN {
-		return nil
-	}
 
 	// Check if the SPBs in this view are abandoned
-	if spb.s.snv.SN == valMsg.SN && spb.s.abandon[valMsg.View] {
+	if spb.s.abandon[valMsg.View] {
 		return nil
 	}
 
@@ -88,11 +87,9 @@ func (spb *SPB) processPBVALMsg(valMsg *SMVBAPBVALMessage) error {
 
 func (spb *SPB) processPBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 	spb.s.logger.Debug("processPBVOTMsg is called", "replica", spb.s.node.Name,
-		"snv", votMsg.SMVBASNView, "Dealer", votMsg.Dealer)
+		"sn", votMsg.SN, "view", votMsg.View, "Dealer", votMsg.Dealer)
 
-	// Check if output has been decided
-	// This check need not wrapping with a lock, since it is used to accelerate stopping without sacrificing safety
-	if votMsg.SN == spb.s.snv.SN && spb.s.output != nil {
+	if spb.s.output != nil {
 		spb.s.logger.Debug("processPBVOTMsg is called, but output has been decided", "replica", spb.s.node.Name,
 			"output", string(spb.s.output))
 		return nil
@@ -101,15 +98,7 @@ func (spb *SPB) processPBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 	spb.s.Lock()
 	defer spb.s.Unlock()
 
-	// if receiving a vote message from a previous sn
-	// a message with same sn but with a previous view will be considered in the next check,
-	// since the previous view must be abandoned
-	if votMsg.SN < spb.s.snv.SN {
-		return nil
-	}
-
-	// Check if the SPBs in this view are abandoned
-	if spb.s.snv.SN == votMsg.SN && spb.s.abandon[votMsg.View] {
+	if spb.s.abandon[votMsg.View] {
 		return nil
 	}
 

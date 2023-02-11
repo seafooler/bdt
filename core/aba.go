@@ -89,6 +89,8 @@ func NewABA(node *Node) *ABA {
 // inputValue will set the given val as the initial value to be proposed in the
 // Agreement.
 func (b *ABA) inputValue(e int) error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	b.aLogger.Info("!!!!!!!!!!!!!!!!!!!! ABA is launched !!!!!!!!!!!!!!!!!!!!", "e", e)
 
 	// Make sure we are in the first round.
@@ -104,6 +106,7 @@ func (b *ABA) inputValue(e int) error {
 		b.sentBvals[0] = [2]bool{false, true}
 	}
 	msg := ABABvalRequestMsg{
+		SN:     b.node.sn,
 		Sender: b.node.Id,
 		Round:  b.round,
 		Value:  e,
@@ -120,14 +123,6 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 	b.aLogger.Debug("receive an bval msg", "replica", b.node.Id, "cur_round", b.round,
 		"msg.Round", msg.Round, "msg.Value", msg.Value, "msg.Sender", msg.Sender, "oddBval", b.recvOddBval,
 		"evenBval", b.recvEvenBval, "aux", b.recvAux, "binValues", b.binValues)
-
-	if b.done {
-		if !b.print {
-			b.aLogger.Info("~~~~~~~~~~~~~~~~ABA is finished~~~~~~~~~~~~~~~~~~", "replica", b.node.Id)
-			b.print = true
-		}
-		return nil
-	}
 
 	// Messages from later rounds will be qued and processed later.
 	if msg.Round > b.round {
@@ -156,6 +151,7 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		}
 		b.sentBvals[msg.Round] = sb
 		m := ABABvalRequestMsg{
+			SN:     msg.SN,
 			Sender: b.node.Id,
 			Round:  msg.Round,
 			Value:  msg.Value,
@@ -182,6 +178,7 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 		if wasEmptyBinValues {
 			parSig := sign_tools.SignTSPartial(b.node.PriKeyTS, []byte(fmt.Sprint(b.round)))
 			m := ABAAuxRequestMsg{
+				SN:     msg.SN,
 				Sender: b.node.Id,
 				Round:  b.round,
 				Value:  msg.Value,
@@ -191,7 +188,7 @@ func (b *ABA) handleBvalRequest(msg *ABABvalRequestMsg) error {
 				return err
 			}
 		}
-		b.tryOutputAgreement()
+		b.tryOutputAgreement(msg.SN)
 	}
 	return nil
 }
@@ -203,14 +200,6 @@ func (b *ABA) handleAuxRequest(msg *ABAAuxRequestMsg) error {
 	b.aLogger.Debug("receive an aux msg", "replica", b.node.Id, "cur_round", b.round,
 		"msg.Round", msg.Round, "msg.Value", msg.Value, "msg.Sender", msg.Sender, "oddBval", b.recvOddBval,
 		"evenBval", b.recvEvenBval, "aux", b.recvAux, "binValues", b.binValues)
-
-	if b.done {
-		if !b.print {
-			b.aLogger.Info("~~~~~~~~~~~~~~~~ABA is finished~~~~~~~~~~~~~~~~~~", "replica", b.node.Id)
-			b.print = true
-		}
-		return nil
-	}
 
 	// Ignore messages from older rounds.
 	if msg.Round < b.round {
@@ -228,14 +217,14 @@ func (b *ABA) handleAuxRequest(msg *ABAAuxRequestMsg) error {
 
 	b.recvAux[msg.Sender] = msg.Value
 	b.recvParSig = append(b.recvParSig, msg.TSPar)
-	b.tryOutputAgreement()
+	b.tryOutputAgreement(msg.SN)
 	return nil
 }
 
 // tryOutputAgreement waits until at least (N - f) output messages received,
 // once the (N - f) messages are received, make a common coin and uses it to
 // compute the next decision estimate and output the optional decision value.
-func (b *ABA) tryOutputAgreement() {
+func (b *ABA) tryOutputAgreement(sn int) {
 	if len(b.binValues) == 0 {
 		return
 	}
@@ -269,6 +258,7 @@ func (b *ABA) tryOutputAgreement() {
 				"round", b.round)
 			b.hasSentExitMsg = true
 			msg := ABAExitMsg{
+				SN:     sn,
 				Sender: b.node.Id,
 				Value:  values[0],
 			}
@@ -276,14 +266,6 @@ func (b *ABA) tryOutputAgreement() {
 				b.aLogger.Error(err.Error())
 			}
 		}
-	}
-
-	if b.done {
-		if !b.print {
-			b.aLogger.Info("~~~~~~~~~~~~~~~~ABA is finished~~~~~~~~~~~~~~~~~~", "replica", b.node.Id)
-			b.print = true
-		}
-		return
 	}
 
 	// Start the next round.
@@ -299,6 +281,7 @@ func (b *ABA) tryOutputAgreement() {
 	}
 
 	msg := ABABvalRequestMsg{
+		SN:     sn,
 		Sender: b.node.Id,
 		Round:  b.round,
 		Value:  estimated,
@@ -365,19 +348,12 @@ func (b *ABA) handleExitMessage(msg *ABAExitMsg) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if b.done {
-		if !b.print {
-			b.aLogger.Info("~~~~~~~~~~~~~~~~ABA is finished~~~~~~~~~~~~~~~~~~", "replica", b.node.Id)
-			b.print = true
-		}
-		return nil
-	}
-
 	b.exitMsgs[msg.Sender] = msg.Value
 	lenEM := b.countExitMessages(msg.Value)
 	if lenEM == b.node.F+1 && !b.hasSentExitMsg {
 		b.hasSentExitMsg = true
 		m := ABAExitMsg{
+			SN:     msg.SN,
 			Sender: b.node.Id,
 			Value:  msg.Value,
 		}
@@ -393,6 +369,13 @@ func (b *ABA) handleExitMessage(msg *ABAExitMsg) error {
 			b.output = msg.Value
 		}
 		b.done = true
+		b.aLogger.Info("Return from ABA", "replica", b.node.Name, "output", b.output)
+		go func() {
+			b.node.statusChangeSignal <- StatusChangeSignal{
+				SN:     msg.SN,
+				Status: (b.node.status + 1) % STATUSCOUNT,
+			}
+		}()
 	}
 	return nil
 }

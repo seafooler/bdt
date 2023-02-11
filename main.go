@@ -37,7 +37,7 @@ func main() {
 
 	go node.HandleMsgsLoop()
 
-	go node.Bolt.ProposalLoop()
+	go node.Bolt.ProposalLoop(0)
 
 	for {
 		time.Sleep(time.Second)
