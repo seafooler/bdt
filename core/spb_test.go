@@ -14,7 +14,7 @@ func TestSimpleSPB(t *testing.T) {
 
 	var qcedDataCh chan SMVBAQCedData
 	var err error
-	if qcedDataCh, err = nodes[0].Smvba.BroadcastViaSPB(originalData, nil, 1, 0); err != nil {
+	if qcedDataCh, err = nodes[0].Smvba.BroadcastViaSPB(originalData, nil, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,7 +42,7 @@ func TestParallelSPB(t *testing.T) {
 
 	for i, node := range nodes {
 		originalData[i] = []byte("seafooler" + fmt.Sprintf("%d%d%d%d", i, i, i, i))
-		if qcedDataChs[i], err = node.Smvba.BroadcastViaSPB(originalData[i], nil, 1, 0); err != nil {
+		if qcedDataChs[i], err = node.Smvba.BroadcastViaSPB(originalData[i], nil, 0); err != nil {
 			t.Fatal(err)
 		}
 	}
