@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/seafooler/sign_tools"
 	"sync"
+	"time"
 )
 
 type Bolt struct {
@@ -60,21 +61,28 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 	for {
 		proofReady := <-b.proofReady
 		newBlock := &Block{
-			Reqs:     nil,
+			SN:       proofReady.SN,
+			Reqs:     NewTxBatch(b.node.MaxPayloadSize),
 			Height:   proofReady.Height + 1,
 			Proposer: b.node.Id,
 		}
 
-		// For testing: trigger a timeout to switch from bolt to aba
-		if newBlock.Height%50 == 49 {
-			return
+		//// For testing: trigger a timeout to switch from bolt to aba
+		//if newBlock.Height%50 == 49 {
+		//	return
+		//}
+
+		// simulate the ddos attack to the leader
+		if b.node.DDoS {
+			time.Sleep(time.Duration(b.node.NetworkDelay) * time.Second)
 		}
 
 		if err := b.BroadcastProposalProof(newBlock, proofReady.Proof); err != nil {
 			b.bLogger.Error("fail to broadcast proposal and proof", "height", newBlock.Height,
 				"err", err.Error())
 		} else {
-			b.bLogger.Info("successfully broadcast a new proposal and proof", "height", newBlock.Height)
+			b.bLogger.Info("successfully broadcast a new proposal and proof", "sn", newBlock.SN,
+				"height", newBlock.Height)
 		}
 	}
 }
@@ -82,7 +90,6 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 // BroadcastProposalProof broadcasts the new block and proof of previous block through the ProposalMsg
 func (b *Bolt) BroadcastProposalProof(blk *Block, proof []byte) error {
 	proposalMsg := BoltProposalMsg{
-		SN:    b.node.sn,
 		Block: *blk,
 		Proof: proof,
 	}
@@ -94,7 +101,7 @@ func (b *Bolt) BroadcastProposalProof(blk *Block, proof []byte) error {
 
 // ProcessBoltProposalMsg votes for the current proposal and commits the previous-previous block
 func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
-	b.bLogger.Debug("Process the Bolt Proposal Message", "block_index", pm.Height)
+	b.bLogger.Debug("Process the Bolt Proposal Message", "sn", pm.SN, "block_index", pm.Height)
 	b.Lock()
 	defer b.Unlock()
 	b.cachedHeight[pm.Height] = true
@@ -110,11 +117,11 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		}
 
 		// try to commit a pre-previous block
-		b.tryCommit(pm.Height)
+		b.tryCommit(pm.SN, pm.Height)
 
 		// if there is a subsequent-subsequent block, deal with it
 		if _, ok := b.proofedHeight[pm.Height+2]; ok {
-			b.tryCommit(pm.Height + 2)
+			b.tryCommit(pm.SN, pm.Height+2)
 		}
 	}
 
@@ -180,9 +187,9 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 }
 
 // tryCommit must be wrapped in a lock
-func (b *Bolt) tryCommit(height int) error {
+func (b *Bolt) tryCommit(sn, height int) error {
 	if _, ok := b.proofedHeight[height-2]; ok {
-		b.bLogger.Info("commit the block", "block_index", height-2)
+		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2)
 		// Todo: check the consecutive commitment
 		b.committedHeight = height - 2
 		delete(b.proofedHeight, height-2)
@@ -190,7 +197,7 @@ func (b *Bolt) tryCommit(height int) error {
 
 	// if there is a subsequent-subsequent block, deal with it
 	if _, ok := b.proofedHeight[height+2]; ok {
-		b.tryCommit(height + 2)
+		b.tryCommit(sn, height+2)
 	}
 
 	return nil

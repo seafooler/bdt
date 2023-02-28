@@ -13,6 +13,10 @@ id_p2p_port:
   1: 9000
   2: 9000
   3: 9000
-log_level: 3
+log_level: 1
 max_pool: 10
 timeout: 5
+network_delay: 10
+ddos: true
+max_payload_size: 500
+tx_size: 512

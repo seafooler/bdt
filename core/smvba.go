@@ -177,7 +177,7 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) erro
 	} else if v > s.view {
 		s.logger.Debug("RunOneMVBAView receives a future call", "replica", s.node.Name, "sn", s.node.sn,
 			"view", s.view, "call.v", v)
-		// cache the call
+		//cache the call
 		s.readyViewDataMap[s.view] = &SMVBAReadyViewData{
 			usePrevData: usePrevData,
 			data:        data,
@@ -232,14 +232,14 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) erro
 
 	finishMsg := SMVBAFinishMessage{
 		SN:     qcedData.SN,
-		Data:   qcedData.Data,
+		Hash:   qcedData.Hash,
 		QC:     qcedData.QC,
 		Dealer: s.node.Name,
 		View:   s.view,
 	}
 
 	s.logger.Debug("finishMsg's Data", "replica", s.node.Name,
-		"finishMsg.Data", string(finishMsg.Data))
+		"finishMsg.Hash", string(finishMsg.Hash))
 
 	if err := s.node.PlainBroadcast(SMVBAFinishTag, finishMsg, nil); err != nil {
 		return err
@@ -341,21 +341,21 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string) {
 	finishMsgByCoin := s.finishMessagesMap[v][coinNode]
 	if finishMsgByCoin != nil && s.output == nil {
 		// If true, output it
-		s.output = finishMsgByCoin.Data
+		s.output = finishMsgByCoin.Hash
 		s.logger.Debug("Data is output after consensus", "replica", s.node.Name, "SN", s.node.sn, "View", v,
 			"dealer", finishMsgByCoin.Dealer, "data", string(s.output))
 		// broadcast halt messages
 		hm := SMVBAHaltMessage{
 			SN:     sn,
-			Value:  finishMsgByCoin.Data,
+			Hash:   finishMsgByCoin.Hash,
 			Proof:  finishMsgByCoin.QC,
 			View:   v,
 			Dealer: finishMsgByCoin.Dealer,
 		}
 
 		go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
-		s.logger.Info("Return from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
-			"dealer", finishMsgByCoin.Dealer, "data", string(s.output))
+		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
+			"dealer", finishMsgByCoin.Dealer, "hash", string(s.output))
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     sn,
@@ -400,11 +400,11 @@ func (s *SMVBA) BroadcastPreVote(sn, v int) error {
 	if ok {
 		// lock data exists
 		pvm.Flag = true
-		pvm.Value = lockData.Data
+		pvm.Hash = lockData.Data
 		pvm.ProofOrPartialSig = lockData.Proof
 	} else {
 		pvm.Flag = false
-		pvm.Value = nil
+		pvm.Hash = nil
 		pvm.ProofOrPartialSig = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v",
 			msgTagNameMap[SMVBAPreVoteTag], v)))
 	}
@@ -435,7 +435,7 @@ func (s *SMVBA) HandlePreVoteMsg(pvm *SMVBAPreVoteMessage) {
 	if pvm.Flag {
 		// TODO: check the proof of PVM
 		vm.Flag = true
-		vm.Value = pvm.Value
+		vm.Hash = pvm.Hash
 		vm.Proof = pvm.ProofOrPartialSig
 		vm.Pho = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%T",
 			msgTagNameMap[SMVBAVoteTag], pvm.View, true)))
@@ -461,7 +461,7 @@ func (s *SMVBA) HandlePreVoteMsg(pvm *SMVBAPreVoteMessage) {
 	if len(s.preVoteMessageMap[pvm.View]) == 2*s.node.F+1 && !s.voteSent[pvm.View] {
 		s.voteSent[pvm.View] = true
 		vm.Flag = false
-		vm.Value = nil
+		vm.Hash = nil
 		partialSigs := make([][]byte, 2*s.node.F+1)
 		count := 0
 		for _, msg := range s.preVoteMessageMap[pvm.View] {
@@ -524,9 +524,9 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 		// 2f+1 true votes
 		if trueCount == 2*s.node.F+1 && s.output == nil {
 			// decide and output it
-			s.output = vm.Value
+			s.output = vm.Hash
 			s.logger.Debug("Data is output after consensus", "replica", s.node.Name, "sn", vm.SN, "view", vm.View,
-				"dealer", vm.Dealer, "data", string(s.output))
+				"dealer", vm.Dealer, "hash", string(s.output))
 
 			data := []byte(fmt.Sprintf("%s%v%T", msgTagNameMap[SMVBAVoteTag], vm.View, true))
 			intactTS := sign_tools.AssembleIntactTSPartial(partialSigsTrue, s.node.PubKeyTS,
@@ -535,15 +535,15 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			// broadcast halt messages
 			hm := SMVBAHaltMessage{
 				SN:     vm.SN,
-				Value:  vm.Value,
+				Hash:   vm.Hash,
 				Proof:  intactTS,
 				View:   vm.View,
 				Dealer: vm.Dealer,
 			}
 
 			go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
-			s.logger.Info("Return from SMVBA", "replica", s.node.Name, "sn", s.node.sn,
-				"msg.View", vm.View, "dealer", vm.Dealer, "data", string(s.output))
+			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn,
+				"msg.View", vm.View, "dealer", vm.Dealer, "hash", string(s.output))
 			go func() {
 				s.node.statusChangeSignal <- StatusChangeSignal{
 					SN:     vm.SN,
@@ -576,7 +576,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			// TODO: proofForNewView is different from the paper description
 			proofForNewView = intactTS
 		} else {
-			dataForNewView = someVoteMsgTrue.Value
+			dataForNewView = someVoteMsgTrue.Hash
 			proofForNewView = someVoteMsgTrue.Proof
 		}
 
@@ -594,12 +594,12 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 	//TODO: check the proof in HaltMessage
 
 	if s.output == nil {
-		s.output = hm.Value
+		s.output = hm.Hash
 		s.logger.Debug("Data is output after consensus by receiving a halt message ", "replica", s.node.Name,
-			"sn", hm.SN, "node-view", s.view, "dealer", hm.Dealer, "data", string(s.output))
+			"sn", hm.SN, "node-view", s.view, "dealer", hm.Dealer, "hash", string(s.output))
 		go s.node.PlainBroadcast(SMVBAHaltTag, *hm, nil)
-		s.logger.Info("Return from SMVBA", "replica", s.node.Name, "sn", s.node.sn, "View", s.view,
-			"dealer", hm.Dealer, "data", string(s.output))
+		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn, "View", s.view,
+			"dealer", hm.Dealer, "hash", string(s.output))
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     hm.SN,

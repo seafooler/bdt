@@ -39,10 +39,18 @@ func (spb *SPB) SPBBroadcastData(rawData, proof []byte, view int) (chan SMVBAQCe
 		"outputFrom1PB", outputFrom1PB)
 
 	// Invoke the 2nd PB
-	if err := spb.pb2.PBBroadcastData(rawData, outputFrom1PB.QC, view, 2); err != nil {
+	//data for the second pb is the hash of output from the first pb
+	var hash []byte
+	if encodedData, err := encode(outputFrom1PB); err != nil {
+		return nil, err
+	} else if hash, err = genMsgHashSum(encodedData); err != nil {
 		return nil, err
 	}
-	
+
+	if err := spb.pb2.PBBroadcastData(hash, outputFrom1PB.QC, view, 2); err != nil {
+		return nil, err
+	}
+
 	return spb.pb2.pbOutputCh, nil
 }
 

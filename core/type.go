@@ -29,13 +29,13 @@ var msgTagNameMap = map[uint8]string{
 }
 
 type Block struct {
+	SN       int
 	Reqs     []byte
 	Height   int
 	Proposer int
 }
 
 type BoltProposalMsg struct {
-	SN int
 	Block
 	Proof []byte
 }
@@ -100,7 +100,7 @@ type SMVBAPBVALMessage struct {
 
 type SMVBAPBVOTMessage struct {
 	SN         int
-	Data       []byte
+	Hash       []byte
 	PartialSig []byte
 	Dealer     string
 	Sender     string
@@ -109,14 +109,14 @@ type SMVBAPBVOTMessage struct {
 
 type SMVBAQCedData struct {
 	SN   int
-	Data []byte
+	Hash []byte
 	QC   []byte
 	SMVBAViewPhase
 }
 
 type SMVBAFinishMessage struct {
 	SN     int
-	Data   []byte
+	Hash   []byte
 	QC     []byte
 	Dealer string
 	View   int
@@ -134,7 +134,7 @@ type SMVBAPreVoteMessage struct {
 	SN                int
 	Flag              bool
 	Dealer            string
-	Value             []byte
+	Hash              []byte
 	ProofOrPartialSig []byte // lock proof (sigma_1) or rho_{pn}
 	Sender            string
 
@@ -146,7 +146,7 @@ type SMVBAVoteMessage struct {
 	SN     int
 	Flag   bool
 	Dealer string
-	Value  []byte
+	Hash   []byte
 	Proof  []byte // sigma_1 or sigma_{PN}
 	Pho    []byte // pho_{2,i} or pho_{vn, i}
 
@@ -157,7 +157,7 @@ type SMVBAVoteMessage struct {
 
 type SMVBAHaltMessage struct {
 	SN     int
-	Value  []byte
+	Hash   []byte
 	Proof  []byte
 	Dealer string
 	View   int

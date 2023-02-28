@@ -71,14 +71,19 @@ func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 	addrPort := pb.spb.s.node.Id2AddrMap[dealerID] + ":" + pb.spb.s.node.Id2PortMap[dealerID]
 
 	// TODO: should sign over the data plus SNView rather than the only data
-	partialSig := sign_tools.SignTSPartial(pb.spb.s.node.PriKeyTS, valMsg.Data)
+	hash, err := genMsgHashSum(valMsg.Data)
+	if err != nil {
+		return err
+	}
+	partialSig := sign_tools.SignTSPartial(pb.spb.s.node.PriKeyTS, hash)
+
 	votMsg := SMVBAPBVOTMessage{
 		SN:             valMsg.SN,
 		PartialSig:     partialSig,
 		Dealer:         valMsg.Dealer,
 		Sender:         pb.spb.s.node.Name,
 		SMVBAViewPhase: valMsg.SMVBAViewPhase,
-		Data:           valMsg.Data,
+		Hash:           hash,
 	}
 
 	go pb.spb.s.node.SendMsg(SMVBAPBVoteTag, votMsg, nil, addrPort)
@@ -88,7 +93,7 @@ func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 func (pb *PB) handlePBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 	pb.spb.s.node.logger.Debug("HandlePBVOTMsg is called", "replica", pb.spb.s.node.Name,
 		"node.SN", pb.spb.s.node.sn, "node.view", pb.spb.s.view, "sn", votMsg.SN, "view", votMsg.View,
-		"id", pb.id, "sender", votMsg.Sender, "data", string(votMsg.Data))
+		"id", pb.id, "sender", votMsg.Sender, "hash", string(votMsg.Hash))
 	pb.mux.Lock()
 	defer pb.mux.Unlock()
 
@@ -101,11 +106,11 @@ func (pb *PB) handlePBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 
 	if len(pb.partialSigs) == pb.spb.s.node.N-pb.spb.s.node.F {
 		intactSig := sign_tools.AssembleIntactTSPartial(pb.partialSigs, pb.spb.s.node.PubKeyTS,
-			votMsg.Data, pb.spb.s.node.N-pb.spb.s.node.F, pb.spb.s.node.N)
+			votMsg.Hash, pb.spb.s.node.N-pb.spb.s.node.F, pb.spb.s.node.N)
 
 		qcedData := SMVBAQCedData{
 			SN:             votMsg.SN,
-			Data:           pb.dataToPB,
+			Hash:           pb.dataToPB,
 			QC:             intactSig,
 			SMVBAViewPhase: votMsg.SMVBAViewPhase,
 		}

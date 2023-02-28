@@ -5,6 +5,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/seafooler/bdt/config"
 	"github.com/seafooler/bdt/conn"
+	"math"
 	"reflect"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ type Node struct {
 	statusChangeSignal chan StatusChangeSignal
 
 	cachedMsgs map[int][3][]interface{} // cache the messages arrived in advance
+	timer      *time.Timer
 
 	sync.Mutex
 }
@@ -39,6 +41,8 @@ func NewNode(conf *config.Config) *Node {
 		reflectedTypesMap:  reflectedTypesMap,
 		statusChangeSignal: make(chan StatusChangeSignal),
 		cachedMsgs:         make(map[int][3][]interface{}),
+		// timer will be reset in message loop
+		timer: time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -67,12 +71,14 @@ func (n *Node) StartP2PListen() error {
 // HandleMsgsLoop starts a loop to deal with the msgs from other peers.
 func (n *Node) HandleMsgsLoop() {
 	msgCh := n.trans.MsgChan()
+	n.timer.Reset(time.Duration(n.Timeout) * time.Second)
 	for {
 		select {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
+					n.timer.Reset(time.Duration(n.Timeout) * time.Second)
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
 				}
 			case BoltVoteMsg:
@@ -134,7 +140,7 @@ func (n *Node) HandleMsgsLoop() {
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}
-		case <-time.After(time.Second * time.Duration(n.Timeout)):
+		case <-n.timer.C:
 			n.logger.Info("timeout ...........................")
 			n.Lock()
 			n.logger.Info("Acquire the lock in timeout ...........................", "n.status", n.status)
@@ -161,12 +167,13 @@ func (n *Node) HandleMsgsLoop() {
 				case 2:
 					n.Smvba = NewSMVBA(n)
 					n.restoreMessages(2)
-					go n.Smvba.RunOneMVBAView(false, []byte("Test!"), nil, -1)
+					go n.Smvba.RunOneMVBAView(false, NewTxBatch(n.MaxPayloadSize), nil, -1)
 				case 0:
 					n.sn = n.sn + 1
 					lastBoltCommittedHeight := n.Bolt.committedHeight
 					n.Bolt = NewBolt(n, 0)
 					n.restoreMessages(0)
+					n.timer.Reset(time.Duration(n.Timeout) * time.Second)
 					go n.Bolt.ProposalLoop(lastBoltCommittedHeight + 4) // multiples of 50
 				}
 			}

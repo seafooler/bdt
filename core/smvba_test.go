@@ -13,8 +13,8 @@ func TestSimpleSMVBA(t *testing.T) {
 	originalDatas := make([][]byte, numNode)
 	proofs := make([][]byte, numNode)
 
-	for i, _ := range nodes {
-		originalDatas[i] = []byte("seafooler" + fmt.Sprintf("%d%d%d%d", i, i, i, i))
+	for i, node := range nodes {
+		originalDatas[i] = NewTxBatch(node.MaxPayloadSize)
 		proofs[i] = nil
 	}
 
