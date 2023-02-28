@@ -107,22 +107,20 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	b.cachedHeight[pm.Height] = true
 	b.cachedBlockProposals[pm.Height] = pm
 	// do not retrieve the previous block nor verify the proof for the 0th block
-	if pm.Height%50 != 0 {
-		// try to cache a previous block
-		b.tryCache(pm.Height, pm.Proof)
+	// try to cache a previous block
+	b.tryCache(pm.Height, pm.Proof)
 
-		// if there is already a subsequent block, deal with it
-		if _, ok := b.cachedHeight[pm.Height+1]; ok {
-			b.tryCache(pm.Height+1, b.cachedBlockProposals[pm.Height+1].Proof)
-		}
+	// if there is already a subsequent block, deal with it
+	if _, ok := b.cachedHeight[pm.Height+1]; ok {
+		b.tryCache(pm.Height+1, b.cachedBlockProposals[pm.Height+1].Proof)
+	}
 
-		// try to commit a pre-previous block
-		b.tryCommit(pm.SN, pm.Height)
+	// try to commit a pre-previous block
+	b.tryCommit(pm.SN, pm.Height)
 
-		// if there is a subsequent-subsequent block, deal with it
-		if _, ok := b.proofedHeight[pm.Height+2]; ok {
-			b.tryCommit(pm.SN, pm.Height+2)
-		}
+	// if there is a subsequent-subsequent block, deal with it
+	if _, ok := b.proofedHeight[pm.Height+2]; ok {
+		b.tryCommit(pm.SN, pm.Height+2)
 	}
 
 	// create the ts share of new block
@@ -148,7 +146,11 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	} else {
 		b.bLogger.Debug("successfully vote for the block", "block_index", pm.Height)
 	}
-	return b.tryAssembleProof(pm.Height)
+	if b.leaderId == b.node.Id {
+		return b.tryAssembleProof(pm.Height)
+	} else {
+		return nil
+	}
 }
 
 // tryCache must be wrapped in a lock
