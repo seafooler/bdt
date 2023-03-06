@@ -85,8 +85,8 @@ func (n *Node) HandleMsgsLoop() {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
-				fmt.Printf("Receive a BoltProposalMsg, SN: %d, Height: %d, TxNum: %d \n", msgAsserted.SN,
-					msgAsserted.Height, msgAsserted.TxNum)
+				n.logger.Info("Receive a BoltProposalMsg", "SN", msgAsserted.SN, "Height", msgAsserted.Height,
+					"TxNum", msgAsserted.TxNum)
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
@@ -210,20 +210,20 @@ func (n *Node) processItNow(msgSN int, msgStatus uint8, msg interface{}) bool {
 		cache := n.cachedMsgs[msgSN]
 		cache[msgStatus] = append(cache[msgStatus], msg)
 		n.cachedMsgs[msgSN] = cache
-		fmt.Printf("Not process it now, msgSN: %d, n.sn: %d, msgStatus: %d, n.status: %d",
-			msgSN, n.sn, msgStatus, n.status)
+		n.logger.Info("Not process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
+			"n.status", n.status)
 		return false
 	}
 
 	if msgSN < n.sn || (msgSN == n.sn && msgStatus < n.status) {
 		// if receiving an obsolete message, ignore it
-		fmt.Printf("Not process it now, msgSN: %d, n.sn: %d, msgStatus: %d, n.status: %d",
-			msgSN, n.sn, msgStatus, n.status)
+		n.logger.Info("Not process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
+			"n.status", n.status)
 		return false
 	}
 
-	fmt.Printf("!!!!! Process it now, msgSN: %d, n.sn: %d, msgStatus: %d, n.status: %d",
-		msgSN, n.sn, msgStatus, n.status)
+	n.logger.Info("!!!!!! Not process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
+		"n.status", n.status)
 	return true
 }
 
