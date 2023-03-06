@@ -85,15 +85,11 @@ func (n *Node) HandleMsgsLoop() {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
-				n.logger.Info("Receive a BoltProposalMsg", "SN", msgAsserted.SN, "Height", msgAsserted.Height,
-					"TxNum", msgAsserted.TxNum)
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
 				}
 			case BoltVoteMsg:
-				n.logger.Info("Receive a BoltVoteMsg", "SN", msgAsserted.SN, "Height", msgAsserted.Height,
-					"Voter", msgAsserted.Voter)
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
 				}
@@ -212,20 +208,14 @@ func (n *Node) processItNow(msgSN int, msgStatus uint8, msg interface{}) bool {
 		cache := n.cachedMsgs[msgSN]
 		cache[msgStatus] = append(cache[msgStatus], msg)
 		n.cachedMsgs[msgSN] = cache
-		n.logger.Info("Not process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
-			"n.status", n.status)
 		return false
 	}
 
 	if msgSN < n.sn || (msgSN == n.sn && msgStatus < n.status) {
 		// if receiving an obsolete message, ignore it
-		n.logger.Info("Not process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
-			"n.status", n.status)
 		return false
 	}
 
-	n.logger.Info("!!!!!! Process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
-		"n.status", n.status)
 	return true
 }
 
@@ -312,8 +302,14 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 		go func(id int, addr string) {
 			port := n.Id2PortMap[id]
 			addrPort := addr + ":" + port
-			err := n.SendMsg(tag, data, sig, addrPort)
+			c, err := n.trans.GetConn(addrPort)
 			if err != nil {
+				panic(err)
+			}
+			if err := conn.SendMsg(c, tag, data, sig); err != nil {
+				panic(err)
+			}
+			if err = n.trans.ReturnConn(c); err != nil {
 				panic(err)
 			}
 		}(i, a)
