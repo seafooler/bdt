@@ -43,7 +43,7 @@ type PayLoadMsg struct {
 
 type BoltProposalMsg struct {
 	Block
-	Proof []byte
+	Proof [][]byte
 }
 
 type BoltVoteMsg struct {
@@ -55,7 +55,7 @@ type BoltVoteMsg struct {
 
 type ProofData struct {
 	SN     int
-	Proof  []byte
+	Proof  [][]byte
 	Height int
 }
 

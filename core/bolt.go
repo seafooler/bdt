@@ -93,7 +93,7 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 }
 
 // BroadcastProposalProof broadcasts the new block and proof of previous block through the ProposalMsg
-func (b *Bolt) BroadcastProposalProof(blk *Block, proof []byte) error {
+func (b *Bolt) BroadcastProposalProof(blk *Block, proof [][]byte) error {
 	proposalMsg := BoltProposalMsg{
 		Block: *blk,
 		Proof: proof,
@@ -161,7 +161,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 }
 
 // tryCache must be wrapped in a lock
-func (b *Bolt) tryCache(height int, proof []byte) error {
+func (b *Bolt) tryCache(height int, proof [][]byte) error {
 	// retrieve the previous block
 	pBlk, ok := b.cachedBlockProposals[height-1]
 	if !ok {
@@ -171,17 +171,17 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 		return nil
 	}
 
-	// verify the proof
-	blockBytes, err := encode(pBlk.Block)
-	if err != nil {
-		b.bLogger.Error("fail to encode the block", "block_index", height)
-		return err
-	}
-
-	if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
-		b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
-		return err
-	}
+	//// verify the proof
+	//blockBytes, err := encode(pBlk.Block)
+	//if err != nil {
+	//	b.bLogger.Error("fail to encode the block", "block_index", height)
+	//	return err
+	//}
+	//
+	//if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
+	//	b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
+	//	return err
+	//}
 
 	b.proofedHeight[pBlk.Height] = pBlk.TxNum
 	b.maxProofedHeight = pBlk.Height
@@ -235,24 +235,24 @@ func (b *Bolt) tryAssembleProof(height int) error {
 			i++
 		}
 
-		cBlk, ok := b.cachedBlockProposals[height]
-		if !ok {
-			b.bLogger.Debug("cachedBlocks does not contain the block", "b.cachedBlocks", b.cachedBlockProposals,
-				"vm.Height", height)
-			// This is not an error, since BoltProposalMsg may be delivered later
-			return nil
-		}
-
-		blockBytes, err := encode(cBlk.Block)
-		if err != nil {
-			b.bLogger.Error("fail to encode the block", "block_index", height)
-			return err
-		}
-		proof := sign_tools.AssembleIntactTSPartial(shares, b.node.PubKeyTS, blockBytes, b.node.N-b.node.F, b.node.N)
+		//cBlk, ok := b.cachedBlockProposals[height]
+		//if !ok {
+		//	b.bLogger.Debug("cachedBlocks does not contain the block", "b.cachedBlocks", b.cachedBlockProposals,
+		//		"vm.Height", height)
+		//	// This is not an error, since BoltProposalMsg may be delivered later
+		//	return nil
+		//}
+		//
+		//blockBytes, err := encode(cBlk.Block)
+		//if err != nil {
+		//	b.bLogger.Error("fail to encode the block", "block_index", height)
+		//	return err
+		//}
+		//proof := sign_tools.AssembleIntactTSPartial(shares, b.node.PubKeyTS, blockBytes, b.node.N-b.node.F, b.node.N)
 
 		go func() {
 			b.proofReady <- ProofData{
-				Proof:  proof,
+				Proof:  shares,
 				Height: height,
 			}
 		}()
