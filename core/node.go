@@ -210,14 +210,20 @@ func (n *Node) processItNow(msgSN int, msgStatus uint8, msg interface{}) bool {
 		cache := n.cachedMsgs[msgSN]
 		cache[msgStatus] = append(cache[msgStatus], msg)
 		n.cachedMsgs[msgSN] = cache
+		fmt.Printf("Not process it now, msgSN: %d, n.sn: %d, msgStatus: %d, n.status: %d",
+			msgSN, n.sn, msgStatus, n.status)
 		return false
 	}
 
 	if msgSN < n.sn || (msgSN == n.sn && msgStatus < n.status) {
 		// if receiving an obsolete message, ignore it
+		fmt.Printf("Not process it now, msgSN: %d, n.sn: %d, msgStatus: %d, n.status: %d",
+			msgSN, n.sn, msgStatus, n.status)
 		return false
 	}
 
+	fmt.Printf("!!!!! Process it now, msgSN: %d, n.sn: %d, msgStatus: %d, n.status: %d",
+		msgSN, n.sn, msgStatus, n.status)
 	return true
 }
 
