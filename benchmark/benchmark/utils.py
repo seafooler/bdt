@@ -22,7 +22,6 @@ class PathMaker:
     def committee_file():
         return '.committee.json'
 
-
     @staticmethod
     def parameters_file():
         return '.parameters.json'

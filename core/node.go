@@ -302,14 +302,7 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 		go func(id int, addr string) {
 			port := n.Id2PortMap[id]
 			addrPort := addr + ":" + port
-			c, err := n.trans.GetConn(addrPort)
-			if err != nil {
-				panic(err)
-			}
-			if err := conn.SendMsg(c, tag, data, sig); err != nil {
-				panic(err)
-			}
-			if err = n.trans.ReturnConn(c); err != nil {
+			if err := n.SendMsg(tag, data, sig, addrPort); err != nil {
 				panic(err)
 			}
 		}(i, a)
@@ -319,7 +312,23 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 
 // BroadcastSyncLaunchMsgs sends the PaceSyncMsg to help all the replicas launch simultaneously
 func (n *Node) BroadcastSyncLaunchMsgs() error {
-	return n.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{SN: -1, Sender: n.Id, Epoch: -1}, nil)
+	for i, a := range n.Id2AddrMap {
+		go func(id int, addr string) {
+			port := n.Id2PortMap[id]
+			addrPort := addr + ":" + port
+			c, err := n.trans.GetConn(addrPort)
+			if err != nil {
+				panic(err)
+			}
+			if err := conn.SendMsg(c, PaceSyncMsgTag, PaceSyncMsg{SN: -1, Sender: n.Id, Epoch: -1}, nil); err != nil {
+				panic(err)
+			}
+			if err = n.trans.ReturnConn(c); err != nil {
+				panic(err)
+			}
+		}(i, a)
+	}
+	return nil
 }
 
 func (n *Node) WaitForEnoughSyncLaunchMsgs() error {
