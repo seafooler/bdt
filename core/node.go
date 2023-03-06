@@ -87,7 +87,7 @@ func (n *Node) BroadcastPayLoad() {
 		}
 		for i := 0; i < txNum; i++ {
 			payLoadMsg.Reqs[i] = make([]byte, 32)
-			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
+			payLoadMsg.Reqs[i][31] = '0'
 		}
 		n.PlainBroadcast(PayLoadMsgTag, payLoadMsg, nil)
 		time.Sleep(time.Millisecond * 200)
