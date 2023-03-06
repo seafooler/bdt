@@ -85,6 +85,8 @@ func (n *Node) HandleMsgsLoop() {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
+				fmt.Printf("Receive a BoltProposalMsg, SN: %d, Height: %d, TxNum: %d \n", msgAsserted.SN,
+					msgAsserted.Height, msgAsserted.TxNum)
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
