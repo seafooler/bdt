@@ -37,6 +37,8 @@ type Node struct {
 	lastBlockCreatedTime time.Time
 	maxCachedTxs         int
 
+	payLoadTxNum int
+
 	sync.Mutex
 }
 
@@ -72,6 +74,24 @@ func (n *Node) StartP2PListen() error {
 		return err
 	}
 	return nil
+}
+
+// BroadcastPayLoad mocks the underlying payload broadcast
+func (n *Node) BroadcastPayLoad() {
+	payLoadFullTime := 1000 * float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
+	for {
+		time.Sleep(time.Duration(payLoadFullTime) * time.Millisecond)
+		txNum := int(float32(n.Rate) * payLoadFullTime)
+		payLoadMsg := PayLoadMsg{
+			Reqs: make([][]byte, txNum),
+		}
+		for i := 0; i < txNum; i++ {
+			payLoadMsg.Reqs[i] = make([]byte, n.Config.TxSize)
+			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
+		}
+		n.PlainBroadcast(PayLoadMsgTag, payLoadMsg, nil)
+		time.Sleep(time.Millisecond * 100)
+	}
 }
 
 // HandleMsgsLoop starts a loop to deal with the msgs from other peers.
@@ -145,6 +165,8 @@ func (n *Node) HandleMsgsLoop() {
 				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandleHaltMsg(&msgAsserted)
 				}
+			case PayLoadMsg:
+				continue
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}

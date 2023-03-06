@@ -44,7 +44,8 @@ func main() {
 	go node.Bolt.ProposalLoop(0)
 
 	for {
-		time.Sleep(time.Second)
+		//time.Sleep(time.Second)
+		node.BroadcastPayLoad()
 	}
 
 }
