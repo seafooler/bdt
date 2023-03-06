@@ -91,6 +91,7 @@ func main() {
 	mockLatency := viperRead.GetInt("mock_latency")
 	ddos := viperRead.GetBool("ddos")
 	max_payload_size := viperRead.GetInt("max_payload_size")
+	max_payload_count := viperRead.GetInt("max_payload_count")
 	tx_size := viperRead.GetInt("tx_size")
 	rate := viperRead.GetInt("rate")
 
@@ -123,6 +124,7 @@ func main() {
 		viperWrite.Set("mock_latency", mockLatency)
 		viperWrite.Set("ddos", ddos)
 		viperWrite.Set("max_payload_size", max_payload_size)
+		viperWrite.Set("max_payload_count", max_payload_count)
 		viperWrite.Set("tx_size", tx_size)
 		viperWrite.Set("rate", rate)
 		viperWrite.WriteConfig()
