@@ -68,7 +68,7 @@ class InstanceManager:
 
     def _create_security_group(self, client):
         client.create_security_group(
-            Description='ParBFT node',
+            Description='BDT node',
             GroupName=self.SECURITY_GROUP_NAME,
         )
 

@@ -75,14 +75,14 @@ func (n *Node) StartP2PListen() error {
 // HandleMsgsLoop starts a loop to deal with the msgs from other peers.
 func (n *Node) HandleMsgsLoop() {
 	msgCh := n.trans.MsgChan()
-	n.timer.Reset(time.Duration(n.Timeout) * time.Second)
+	n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 	for {
 		select {
 		case msg := <-msgCh:
 			switch msgAsserted := msg.(type) {
 			case BoltProposalMsg:
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
-					n.timer.Reset(time.Duration(n.Timeout) * time.Second)
+					n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
 				}
 			case BoltVoteMsg:
@@ -185,7 +185,7 @@ func (n *Node) HandleMsgsLoop() {
 					lastBoltCommittedHeight := n.Bolt.committedHeight
 					n.Bolt = NewBolt(n, 0)
 					n.restoreMessages(0)
-					n.timer.Reset(time.Duration(n.Timeout) * time.Second)
+					n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 					go n.Bolt.ProposalLoop(lastBoltCommittedHeight + 4) // multiples of 50
 				}
 			}

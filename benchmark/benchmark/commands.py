@@ -46,5 +46,5 @@ class CommandMaker:
     @staticmethod
     def alias_binaries(origin):
         assert isinstance(origin, str)
-        node = join(origin, 'parbft')
+        node = join(origin, 'bdt')
         return f'rm node ;  ln -s {node} ./node '

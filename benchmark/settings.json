@@ -9,8 +9,8 @@
     "front": 6000
   },
   "repo": {
-    "name": "parbft",
-    "url": "https://github.com/seafooler/parbft.git",
+    "name": "bdt",
+    "url": "https://github.com/seafooler/bdt.git",
     "branch": "master"
   },
   "instances": {

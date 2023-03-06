@@ -16,7 +16,7 @@ class PathMaker:
 
     @staticmethod
     def node_crate_path():
-        return join('/home/ubuntu', 'parbft')
+        return join('/home/ubuntu', 'bdt')
 
     @staticmethod
     def committee_file():

@@ -64,11 +64,10 @@ def install(ctx):
 def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
-        'nodes': [14],
+        'nodes': [4],
         'faults': 0,
         'duration': 100,
         'runs': 1,
-        'timeout_delay': 5000,
     }
     try:
         Bench(ctx).run(bench_params, debug=False)

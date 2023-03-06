@@ -141,12 +141,12 @@ class Bench:
 
         subprocess.run(['pwd'], shell=True, stderr=subprocess.DEVNULL)
 
-        with open('/vagrant/parbft/benchmark/config_temp.yaml', 'a') as f:
+        with open('/vagrant/bdt/benchmark/config_temp.yaml', 'a') as f:
             f.write(ips_elem)
 
         Print.heading(f'hosts: {hosts}')
 
-        cmd = 'go run /vagrant/parbft/config_gen/main.go'
+        cmd = 'go run /vagrant/bdt/config_gen/main.go'
         subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
 
         # Cleanup all nodes.
@@ -224,7 +224,7 @@ class Bench:
             raise BenchError('Failed to update nodes', e)
 
 
-        Print.info('Running ParBFT')
+        Print.info('Running BDT')
 
         Print.info(f'{bench_parameters.faults} faults')
 

@@ -15,7 +15,7 @@ id_p2p_port:
   3: 9000
 log_level: 1
 max_pool: 10
-timeout: 5
+timeout: 1000
 mock_latency: 10
 ddos: true
 max_payload_size: 500
