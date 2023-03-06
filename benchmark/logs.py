@@ -73,7 +73,7 @@ class LogParser:
         tmp = [(d, self._to_posix(t)) for t, d in tmp]
         proposals = self._merge_results_proposal(tmp)
 
-        tmp = findall(r'(.*Z).*commit the block from the optimistic path.*block_index=(.*) tx_num=(.*)',log)
+        tmp = findall(r'(.*Z).*Commit a block in Bolt.*block_index=(.*) tx_num=(.*)',log)
         tmp = [(d, (self._to_posix(t), n)) for t, d, n in tmp]
         commits = self._merge_results_commit(tmp)
 

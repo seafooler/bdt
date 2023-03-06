@@ -54,20 +54,20 @@ class Bench:
     def install(self):
         Print.info('Installing golang and cloning the repo...')
         cmd = [
-            'sudo apt-get update',
-            'sudo apt-get -y upgrade',
-            'sudo apt-get -y autoremove',
-
-            # The following dependencies prevent the error: [error: linker `cc` not found].
-            'sudo apt-get -y install build-essential',
-            'sudo apt-get -y install cmake',
-
-            # Install golang
-            'wget https://go.dev/dl/go1.18.linux-amd64.tar.gz',
-            'tar -zxvf go1.18.linux-amd64.tar.gz',
-            'sudo mv go /usr/local',
-            'echo \'export PATH=$PATH:/usr/local/go/bin\' >> ~/.bashrc',
-            'source ~/.bashrc',
+            # 'sudo apt-get update',
+            # 'sudo apt-get -y upgrade',
+            # 'sudo apt-get -y autoremove',
+            #
+            # # The following dependencies prevent the error: [error: linker `cc` not found].
+            # 'sudo apt-get -y install build-essential',
+            # 'sudo apt-get -y install cmake',
+            #
+            # # Install golang
+            # 'wget https://go.dev/dl/go1.18.linux-amd64.tar.gz',
+            # 'tar -zxvf go1.18.linux-amd64.tar.gz',
+            # 'sudo mv go /usr/local',
+            # 'echo \'export PATH=$PATH:/usr/local/go/bin\' >> ~/.bashrc',
+            # 'source ~/.bashrc',
 
             # Clone the repo.
             f'(git clone {self.settings.repo_url} || (cd {self.settings.repo_name} ; git pull))'

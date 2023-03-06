@@ -68,6 +68,7 @@ def remote(ctx):
         'faults': 0,
         'duration': 100,
         'runs': 1,
+        'timeout_delay': 5000,
     }
     try:
         Bench(ctx).run(bench_params, debug=False)

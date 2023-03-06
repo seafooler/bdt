@@ -92,6 +92,7 @@ func main() {
 	ddos := viperRead.GetBool("ddos")
 	max_payload_size := viperRead.GetInt("max_payload_size")
 	tx_size := viperRead.GetInt("tx_size")
+	rate := viperRead.GetInt("rate")
 
 	// write to configure files
 	for i, name := range idNameMap {
@@ -123,6 +124,7 @@ func main() {
 		viperWrite.Set("ddos", ddos)
 		viperWrite.Set("max_payload_size", max_payload_size)
 		viperWrite.Set("tx_size", tx_size)
+		viperWrite.Set("rate", rate)
 		viperWrite.WriteConfig()
 	}
 }
