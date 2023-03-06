@@ -94,6 +94,7 @@ func main() {
 	max_payload_count := viperRead.GetInt("max_payload_count")
 	tx_size := viperRead.GetInt("tx_size")
 	rate := viperRead.GetInt("rate")
+	wait_time := viperRead.GetInt("wait_time")
 
 	// write to configure files
 	for i, name := range idNameMap {
@@ -127,6 +128,7 @@ func main() {
 		viperWrite.Set("max_payload_count", max_payload_count)
 		viperWrite.Set("tx_size", tx_size)
 		viperWrite.Set("rate", rate)
+		viperWrite.Set("wait_time", wait_time)
 		viperWrite.WriteConfig()
 	}
 }

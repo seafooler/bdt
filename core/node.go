@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/seafooler/bdt/config"
 	"github.com/seafooler/bdt/conn"
@@ -76,6 +77,8 @@ func (n *Node) StartP2PListen() error {
 // HandleMsgsLoop starts a loop to deal with the msgs from other peers.
 func (n *Node) HandleMsgsLoop() {
 	msgCh := n.trans.MsgChan()
+	fmt.Printf("Timeout: %d, MockLatency: %d\n", n.Timeout, n.MockLatency)
+
 	n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
 	for {
 		select {
@@ -295,13 +298,15 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 
 // PlainBroadcast broadcasts data in its best effort
 func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
-	for id, addr := range n.Id2AddrMap {
-		port := n.Id2PortMap[id]
-		addrPort := addr + ":" + port
-		err := n.SendMsg(tag, data, sig, addrPort)
-		if err != nil {
-			return err
-		}
+	for i, a := range n.Id2AddrMap {
+		go func(id int, addr string) {
+			port := n.Id2PortMap[id]
+			addrPort := addr + ":" + port
+			err := n.SendMsg(tag, data, sig, addrPort)
+			if err != nil {
+				panic(err)
+			}
+		}(i, a)
 	}
 	return nil
 }
