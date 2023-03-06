@@ -86,11 +86,11 @@ func (n *Node) BroadcastPayLoad() {
 			Reqs: make([][]byte, txNum),
 		}
 		for i := 0; i < txNum; i++ {
-			payLoadMsg.Reqs[i] = make([]byte, n.Config.TxSize)
+			payLoadMsg.Reqs[i] = make([]byte, 32)
 			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
 		n.PlainBroadcast(PayLoadMsgTag, payLoadMsg, nil)
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 200)
 	}
 }
 
@@ -328,7 +328,7 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 			if err := n.SendMsg(tag, data, sig, addrPort); err != nil {
 				panic(err)
 			}
-			fmt.Printf("Sending a message costs %d milliseconds\n", time.Now().Sub(start).Milliseconds())
+			n.logger.Info("Broadcasting a message", "ms", time.Now().Sub(start).Milliseconds())
 
 		}(i, a)
 	}
