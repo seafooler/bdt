@@ -68,9 +68,9 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 		b.node.lastBlockCreatedTime = curTime
 
 		newBlock := &Block{
-			SN:    proofReady.SN,
-			TxNum: estimatdTxNum,
-			//Reqs:     NewTxBatch(b.node.MaxPayloadSize),
+			SN:       proofReady.SN,
+			TxNum:    estimatdTxNum,
+			Reqs:     NewTxBatch(estimatdTxNum),
 			Height:   proofReady.Height + 1,
 			Proposer: b.node.Id,
 		}
@@ -108,6 +108,8 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	b.Lock()
 	defer b.Unlock()
 	b.cachedHeight[pm.Height] = true
+	// A simple dealing to reduce the memory consumption
+	pm.Reqs = nil
 	b.cachedBlockProposals[pm.Height] = pm
 	// do not retrieve the previous block nor verify the proof for the 0th block
 	// try to cache a previous block

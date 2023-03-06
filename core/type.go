@@ -29,9 +29,9 @@ var msgTagNameMap = map[uint8]string{
 }
 
 type Block struct {
-	SN    int
-	TxNum int
-	//Reqs     []byte
+	SN       int
+	TxNum    int
+	Reqs     []byte
 	Height   int
 	Proposer int
 }
