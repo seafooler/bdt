@@ -328,7 +328,7 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 			if err := n.SendMsg(tag, data, sig, addrPort); err != nil {
 				panic(err)
 			}
-			n.logger.Info("Broadcasting a message", "ms", time.Now().Sub(start).Milliseconds())
+			n.logger.Info("Broadcasting a message", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
 
 		}(i, a)
 	}
