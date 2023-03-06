@@ -69,9 +69,9 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 		b.node.lastBlockCreatedTime = curTime
 
 		newBlock := &Block{
-			SN:       proofReady.SN,
-			TxNum:    estimatdTxNum,
-			Reqs:     NewTxBatch(b.node.MaxPayloadSize),
+			SN:    proofReady.SN,
+			TxNum: estimatdTxNum,
+			//Reqs:     NewTxBatch(b.node.MaxPayloadSize),
 			Height:   proofReady.Height + 1,
 			Proposer: b.node.Id,
 		}
@@ -240,7 +240,7 @@ func (b *Bolt) tryAssembleProof(height int) error {
 			return nil
 		}
 
-		blockBytes, err := encode(cBlk.Block)
+		blockBytes, err := encode(cBlk)
 		if err != nil {
 			b.bLogger.Error("fail to encode the block", "block_index", height)
 			return err

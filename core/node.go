@@ -192,7 +192,7 @@ func (n *Node) HandleMsgsLoop() {
 					n.Bolt = NewBolt(n, 0)
 					n.restoreMessages(0)
 					n.timer.Reset(time.Duration(n.Timeout) * time.Millisecond)
-					go n.Bolt.ProposalLoop(lastBoltCommittedHeight + 4) // multiples of 50
+					go n.Bolt.ProposalLoop(lastBoltCommittedHeight + 1)
 				}
 			}
 			n.Unlock()
@@ -222,7 +222,7 @@ func (n *Node) processItNow(msgSN int, msgStatus uint8, msg interface{}) bool {
 		return false
 	}
 
-	n.logger.Info("!!!!!! Not process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
+	n.logger.Info("!!!!!! Process it now", "msgSN", msgSN, "n.sn", n.sn, "msgStatus", msgStatus,
 		"n.status", n.status)
 	return true
 }
