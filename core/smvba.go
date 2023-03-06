@@ -124,6 +124,7 @@ func (s *SMVBA) HandleFinishMsg(fMsg *SMVBAFinishMessage) {
 		msgTagNameMap[SMVBADoneShareTag], fMsg.View)))
 	doneShareMsg := SMVBADoneShareMessage{
 		SN:      fMsg.SN,
+		TxCount: fMsg.TxCount,
 		TSShare: coinShare,
 		Sender:  s.node.Name,
 		View:    fMsg.View,
@@ -273,6 +274,7 @@ func (s *SMVBA) HandleDoneShareMsg(msg *SMVBADoneShareMessage) {
 		msgTagNameMap[SMVBADoneShareTag], msg.View)))
 	doneShareMsg := SMVBADoneShareMessage{
 		SN:      msg.SN,
+		TxCount: msg.TxCount,
 		TSShare: coinShare,
 		Sender:  s.node.Name,
 		View:    msg.View,
@@ -397,10 +399,11 @@ func (s *SMVBA) BroadcastPreVote(sn, v int) error {
 	// TODO: bug?
 	lockData, ok := s.lockMessageMap[v][coin2NodeName]
 	pvm := SMVBAPreVoteMessage{
-		SN:     sn,
-		Dealer: coin2NodeName,
-		Sender: s.node.Name,
-		View:   v,
+		SN:      sn,
+		TxCount: lockData.TxCount,
+		Dealer:  coin2NodeName,
+		Sender:  s.node.Name,
+		View:    v,
 	}
 	if ok {
 		// lock data exists
@@ -430,10 +433,11 @@ func (s *SMVBA) HandlePreVoteMsg(pvm *SMVBAPreVoteMessage) {
 
 	coin2NodeName := s.node.Id2NameMap[s.coin[pvm.View]]
 	vm := SMVBAVoteMessage{
-		SN:     pvm.SN,
-		Dealer: coin2NodeName,
-		Sender: s.node.Name,
-		View:   pvm.View,
+		SN:      pvm.SN,
+		TxCount: pvm.TxCount,
+		Dealer:  coin2NodeName,
+		Sender:  s.node.Name,
+		View:    pvm.View,
 	}
 
 	// Check if pvm has a flag of true
@@ -549,7 +553,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 
 			go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
 			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn,
-				"msg.View", vm.View, "dealer", vm.Dealer, "hash", string(s.output))
+				"msg.View", vm.View, "dealer", vm.Dealer, "hash", string(s.output), "txNum", vm.TxCount)
 			go func() {
 				s.node.statusChangeSignal <- StatusChangeSignal{
 					SN:     vm.SN,
@@ -607,7 +611,7 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 			"sn", hm.SN, "node-view", s.view, "dealer", hm.Dealer, "hash", string(s.output))
 		go s.node.PlainBroadcast(SMVBAHaltTag, *hm, nil)
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn, "View", s.view,
-			"dealer", hm.Dealer, "hash", string(s.output))
+			"dealer", hm.Dealer, "hash", string(s.output), "txNum", hm.TxCount)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     hm.SN,

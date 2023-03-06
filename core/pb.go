@@ -80,6 +80,7 @@ func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 
 	votMsg := SMVBAPBVOTMessage{
 		SN:             valMsg.SN,
+		TxCount:        valMsg.TxCount,
 		PartialSig:     partialSig,
 		Dealer:         valMsg.Dealer,
 		Sender:         pb.spb.s.node.Name,
@@ -111,6 +112,7 @@ func (pb *PB) handlePBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 
 		qcedData := SMVBAQCedData{
 			SN:             votMsg.SN,
+			TxCount:        votMsg.TxCount,
 			Hash:           pb.dataToPB,
 			QC:             intactSig,
 			SMVBAViewPhase: votMsg.SMVBAViewPhase,
