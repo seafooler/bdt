@@ -183,7 +183,7 @@ func (n *Node) HandleMsgsLoop() {
 
 					n.lastBlockCreatedTime = curTime
 
-					go n.Smvba.RunOneMVBAView(false, NewTxBatch(n.MaxPayloadSize), nil, estimatdTxNum, -1)
+					go n.Smvba.RunOneMVBAView(false, NewTxBatch(estimatdTxNum), nil, estimatdTxNum, -1)
 				case 0:
 					n.sn = n.sn + 1
 					lastBoltCommittedHeight := n.Bolt.committedHeight

@@ -66,7 +66,7 @@ def remote(ctx):
     bench_params = {
         'nodes': [16],
         'faults': 0,
-        'duration': 30,
+        'duration': 100,
         'runs': 1,
         'timeout_delay': 5000,
     }

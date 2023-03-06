@@ -253,7 +253,7 @@ class Bench:
                         hosts, bench_parameters
                     )
                     self._logs(hosts, faults).print(PathMaker.result_file(
-                        n, bench_parameters.tx_size, faults
+                        n, faults
                     ))
                 except (subprocess.SubprocessError, GroupException, ParseError) as e:
                     self.kill(hosts=hosts)
