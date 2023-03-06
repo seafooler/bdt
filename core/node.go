@@ -46,7 +46,8 @@ func NewNode(conf *config.Config) *Node {
 		statusChangeSignal: make(chan StatusChangeSignal),
 		cachedMsgs:         make(map[int][3][]interface{}),
 		// timer will be reset in message loop
-		timer: time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
+		timer:        time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
+		maxCachedTxs: conf.MaxPayloadCount * (conf.MaxPayloadSize / conf.TxSize),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
