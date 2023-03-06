@@ -110,3 +110,19 @@
  Consensus latency: 2,294 ms
 
 -----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 63 s
+
+ + RESULTS:
+ Consensus TPS: 0 tx/s
+ Consensus latency: 2,287 ms
+
+-----------------------------------------
