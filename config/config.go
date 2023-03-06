@@ -99,7 +99,7 @@ func LoadConfig(configPrefix, configName string) (*Config, error) {
 	timeOut := viperConfig.GetInt("timeout")
 	mockLatency := viperConfig.GetInt("mock_latency")
 	ddos := viperConfig.GetBool("ddos")
-	maxPayloadSize := viperConfig.GetInt("maxPayloadSize")
+	maxPayloadSize := viperConfig.GetInt("max_payload_size")
 	maxPayloadCount := viperConfig.GetInt("max_payload_count")
 	rate := viperConfig.GetInt("rate")
 	txSize := viperConfig.GetInt("tx_size")
