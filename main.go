@@ -35,9 +35,9 @@ func main() {
 		panic(err)
 	}
 
-	//// Help all the replicas to start simultaneously
-	//node.BroadcastSyncLaunchMsgs()
-	//node.WaitForEnoughSyncLaunchMsgs()
+	// Help all the replicas to start simultaneously
+	node.BroadcastSyncLaunchMsgs()
+	node.WaitForEnoughSyncLaunchMsgs()
 
 	go node.HandleMsgsLoop()
 
