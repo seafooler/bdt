@@ -92,6 +92,8 @@ func (n *Node) HandleMsgsLoop() {
 					go n.Bolt.ProcessBoltProposalMsg(&msgAsserted)
 				}
 			case BoltVoteMsg:
+				n.logger.Info("Receive a BoltVoteMsg", "SN", msgAsserted.SN, "Height", msgAsserted.Height,
+					"Voter", msgAsserted.Voter)
 				if n.processItNow(msgAsserted.SN, 0, msgAsserted) {
 					go n.Bolt.ProcessBoltVoteMsg(&msgAsserted)
 				}
