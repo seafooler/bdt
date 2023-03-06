@@ -2,7 +2,6 @@ package core
 
 import (
 	"github.com/hashicorp/go-hclog"
-	"github.com/seafooler/sign_tools"
 	"sync"
 	"time"
 )
@@ -127,23 +126,23 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		b.tryCommit(pm.SN, pm.Height+2)
 	}
 
-	// create the ts share of new block
-	blockBytes, err := encode(pm.Block)
-	if err != nil {
-		b.bLogger.Error("fail to encode the block", "block_index", pm.Height)
-		return err
-	}
-	share := sign_tools.SignTSPartial(b.node.PriKeyTS, blockBytes)
+	//// create the ts share of new block
+	//blockBytes, err := encode(pm.Block)
+	//if err != nil {
+	//	b.bLogger.Error("fail to encode the block", "block_index", pm.Height)
+	//	return err
+	//}
+	//share := sign_tools.SignTSPartial(b.node.PriKeyTS, blockBytes)
 
 	// send the ts share to the leader
 	boltVoteMsg := BoltVoteMsg{
 		SN:     pm.SN,
-		Share:  share,
+		Share:  nil,
 		Height: pm.Height,
 		Voter:  b.node.Id,
 	}
 	leaderAddrPort := b.node.Id2AddrMap[b.leaderId] + ":" + b.node.Id2PortMap[b.leaderId]
-	err = b.node.SendMsg(BoltVoteMsgTag, boltVoteMsg, nil, leaderAddrPort)
+	err := b.node.SendMsg(BoltVoteMsgTag, boltVoteMsg, nil, leaderAddrPort)
 	if err != nil {
 		b.bLogger.Error("fail to vote for the block", "block_index", pm.Height)
 		return err
@@ -168,17 +167,17 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 		return nil
 	}
 
-	// verify the proof
-	blockBytes, err := encode(pBlk.Block)
-	if err != nil {
-		b.bLogger.Error("fail to encode the block", "block_index", height)
-		return err
-	}
-
-	if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
-		b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
-		return err
-	}
+	//// verify the proof
+	//blockBytes, err := encode(pBlk.Block)
+	//if err != nil {
+	//	b.bLogger.Error("fail to encode the block", "block_index", height)
+	//	return err
+	//}
+	//
+	//if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
+	//	b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
+	//	return err
+	//}
 
 	b.proofedHeight[pBlk.Height] = pBlk.TxNum
 	b.maxProofedHeight = pBlk.Height
@@ -232,24 +231,24 @@ func (b *Bolt) tryAssembleProof(height int) error {
 			i++
 		}
 
-		cBlk, ok := b.cachedBlockProposals[height]
-		if !ok {
-			b.bLogger.Debug("cachedBlocks does not contain the block", "b.cachedBlocks", b.cachedBlockProposals,
-				"vm.Height", height)
-			// This is not an error, since BoltProposalMsg may be delivered later
-			return nil
-		}
-
-		blockBytes, err := encode(cBlk)
-		if err != nil {
-			b.bLogger.Error("fail to encode the block", "block_index", height)
-			return err
-		}
-		proof := sign_tools.AssembleIntactTSPartial(shares, b.node.PubKeyTS, blockBytes, b.node.N-b.node.F, b.node.N)
+		//cBlk, ok := b.cachedBlockProposals[height]
+		//if !ok {
+		//	b.bLogger.Debug("cachedBlocks does not contain the block", "b.cachedBlocks", b.cachedBlockProposals,
+		//		"vm.Height", height)
+		//	// This is not an error, since BoltProposalMsg may be delivered later
+		//	return nil
+		//}
+		//
+		//blockBytes, err := encode(cBlk)
+		//if err != nil {
+		//	b.bLogger.Error("fail to encode the block", "block_index", height)
+		//	return err
+		//}
+		//proof := sign_tools.AssembleIntactTSPartial(shares, b.node.PubKeyTS, blockBytes, b.node.N-b.node.F, b.node.N)
 
 		go func() {
 			b.proofReady <- ProofData{
-				Proof:  proof,
+				Proof:  nil,
 				Height: height,
 			}
 		}()
