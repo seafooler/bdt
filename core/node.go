@@ -302,9 +302,12 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 		go func(id int, addr string) {
 			port := n.Id2PortMap[id]
 			addrPort := addr + ":" + port
+			start := time.Now()
 			if err := n.SendMsg(tag, data, sig, addrPort); err != nil {
 				panic(err)
 			}
+			fmt.Printf("Sending a message costs %d milliseconds\n", time.Now().Sub(start).Milliseconds())
+
 		}(i, a)
 	}
 	return nil
@@ -320,11 +323,9 @@ func (n *Node) BroadcastSyncLaunchMsgs() error {
 			if err != nil {
 				panic(err)
 			}
-			start := time.Now()
 			if err := conn.SendMsg(c, PaceSyncMsgTag, PaceSyncMsg{SN: -1, Sender: n.Id, Epoch: -1}, nil); err != nil {
 				panic(err)
 			}
-			fmt.Printf("Sending a message costs %d milliseconds\n", time.Now().Sub(start).Milliseconds())
 			if err = n.trans.ReturnConn(c); err != nil {
 				panic(err)
 			}
