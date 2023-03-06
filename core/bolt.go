@@ -46,6 +46,7 @@ func NewBolt(node *Node, leader int) *Bolt {
 }
 
 func (b *Bolt) ProposalLoop(startHeight int) {
+	b.node.lastBlockCreatedTime = time.Now()
 	if b.node.Id != b.leaderId {
 		return
 	} else {
