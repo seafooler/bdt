@@ -32,6 +32,10 @@ type Node struct {
 	cachedMsgs map[int][3][]interface{} // cache the messages arrived in advance
 	timer      *time.Timer
 
+	// mock the transactions sent from clients
+	lastBlockCreatedTime time.Time
+	maxCachedTxs         int
+
 	sync.Mutex
 }
 
@@ -167,7 +171,15 @@ func (n *Node) HandleMsgsLoop() {
 				case 2:
 					n.Smvba = NewSMVBA(n)
 					n.restoreMessages(2)
-					go n.Smvba.RunOneMVBAView(false, NewTxBatch(n.MaxPayloadSize), nil, -1)
+					curTime := time.Now()
+					estimatdTxNum := int(curTime.Sub(n.lastBlockCreatedTime).Seconds() * float64(n.Config.Rate))
+					if estimatdTxNum > n.maxCachedTxs {
+						estimatdTxNum = n.maxCachedTxs
+					}
+
+					n.lastBlockCreatedTime = curTime
+
+					go n.Smvba.RunOneMVBAView(false, NewTxBatch(n.MaxPayloadSize), nil, estimatdTxNum, -1)
 				case 0:
 					n.sn = n.sn + 1
 					lastBoltCommittedHeight := n.Bolt.committedHeight
@@ -269,6 +281,7 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 	if err != nil {
 		return err
 	}
+	time.Sleep(time.Millisecond * time.Duration(n.Config.MockLatency))
 	if err := conn.SendMsg(c, tag, data, sig); err != nil {
 		return err
 	}

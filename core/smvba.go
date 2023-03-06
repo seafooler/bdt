@@ -20,6 +20,7 @@ type SMVBA struct {
 	logger hclog.Logger
 
 	inProcessData, inProcessProof []byte
+	inProcessTxNum                int
 
 	finishMessagesMap map[int]map[string]*SMVBAFinishMessage
 	lockMessageMap    map[int]map[string]*SMVBAPBVALMessage
@@ -89,8 +90,8 @@ func (s *SMVBA) Output() []byte {
 }
 
 // BroadcastViaSPB encapsulates the inner functions of calling SPB
-func (s *SMVBA) BroadcastViaSPB(data, proof []byte, view int) (chan SMVBAQCedData, error) {
-	return s.spb.SPBBroadcastData(data, proof, view)
+func (s *SMVBA) BroadcastViaSPB(data, proof []byte, txCount, view int) (chan SMVBAQCedData, error) {
+	return s.spb.SPBBroadcastData(data, proof, txCount, view)
 }
 
 // VerifyTS verifies the data's threshold signature
@@ -152,12 +153,12 @@ func (s *SMVBA) HandleFinishMsg(fMsg *SMVBAFinishMessage) {
 			s.logger.Debug("Abandon all the SPBs", "replica", s.node.Name, "sn", s.node.sn, "view", s.view,
 				"fMsg.View", fMsg.View)
 			coin2NodeName := s.node.Id2NameMap[coin]
-			s.HaltOrPreVote(fMsg.SN, fMsg.View, coin2NodeName)
+			s.HaltOrPreVote(fMsg.SN, fMsg.View, coin2NodeName, fMsg.TxCount)
 		}
 	}
 }
 
-func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) error {
+func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, txCount, v int) error {
 	s.logger.Info("RunOneMVBAView is called", "replica", s.node.Name, "sn", s.node.sn, "view", v)
 	s.Lock()
 
@@ -180,6 +181,7 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) erro
 		//cache the call
 		s.readyViewDataMap[s.view] = &SMVBAReadyViewData{
 			usePrevData: usePrevData,
+			txCount:     txCount,
 			data:        data,
 			proof:       proof,
 		}
@@ -193,6 +195,7 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) erro
 	s.AdvanceView()
 	if !usePrevData {
 		s.inProcessData = data
+		s.inProcessTxNum = txCount
 	}
 	s.inProcessProof = proof
 	s.Unlock()
@@ -201,14 +204,14 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) erro
 	if rvd, ok := s.readyViewDataMap[s.view]; ok {
 		s.logger.Debug("Retrieve a cached readyViewData and run the next view directly", "replica", s.node.Name,
 			"s.SN", s.node.sn, "s.view", s.view)
-		go s.RunOneMVBAView(rvd.usePrevData, rvd.data, rvd.proof, s.view)
+		go s.RunOneMVBAView(rvd.usePrevData, rvd.data, rvd.proof, rvd.txCount, s.view)
 		return nil
 	}
 
 	// Phase 1: SPB phase
 	s.logger.Debug("Run a new view by calling the SPB", "replica", s.node.Name, "sn", s.node.sn,
 		"view", s.view, "data", string(s.inProcessData), "usePrevData", usePrevData)
-	qcedDataCh, err := s.BroadcastViaSPB(s.inProcessData, s.inProcessProof, s.view)
+	qcedDataCh, err := s.BroadcastViaSPB(s.inProcessData, s.inProcessProof, s.inProcessTxNum, s.view)
 	if err != nil {
 		return err
 	}
@@ -231,11 +234,12 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, v int) erro
 		"view", s.view)
 
 	finishMsg := SMVBAFinishMessage{
-		SN:     qcedData.SN,
-		Hash:   qcedData.Hash,
-		QC:     qcedData.QC,
-		Dealer: s.node.Name,
-		View:   s.view,
+		SN:      qcedData.SN,
+		TxCount: qcedData.TxCount,
+		Hash:    qcedData.Hash,
+		QC:      qcedData.QC,
+		Dealer:  s.node.Name,
+		View:    s.view,
 	}
 
 	s.logger.Debug("finishMsg's Data", "replica", s.node.Name,
@@ -331,11 +335,11 @@ func (s *SMVBA) HandleDoneShareMsg(msg *SMVBADoneShareMessage) {
 	s.abandon[msg.View] = true
 	s.logger.Debug("Abandon all the SPBs", "replica", s.node.Name, "s.SN", s.node.sn, "s.view", s.view, "msg.View", msg.View)
 
-	s.HaltOrPreVote(msg.SN, msg.View, coin2NodeName)
+	s.HaltOrPreVote(msg.SN, msg.View, coin2NodeName, msg.TxCount)
 }
 
 // HaltOrPreVote must be called by a wrapped lock
-func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string) {
+func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 	s.logger.Debug("HaltOrPreVote is called", "replica", s.node.Name,
 		"sn", s.node.sn, "view", v)
 	finishMsgByCoin := s.finishMessagesMap[v][coinNode]
@@ -346,16 +350,17 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string) {
 			"dealer", finishMsgByCoin.Dealer, "data", string(s.output))
 		// broadcast halt messages
 		hm := SMVBAHaltMessage{
-			SN:     sn,
-			Hash:   finishMsgByCoin.Hash,
-			Proof:  finishMsgByCoin.QC,
-			View:   v,
-			Dealer: finishMsgByCoin.Dealer,
+			SN:      sn,
+			TxCount: txNum,
+			Hash:    finishMsgByCoin.Hash,
+			Proof:   finishMsgByCoin.QC,
+			View:    v,
+			Dealer:  finishMsgByCoin.Dealer,
 		}
 
 		go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
-			"dealer", finishMsgByCoin.Dealer, "hash", string(s.output))
+			"dealer", finishMsgByCoin.Dealer, "hash", string(s.output), "txNum", txNum)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     sn,
@@ -534,11 +539,12 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 
 			// broadcast halt messages
 			hm := SMVBAHaltMessage{
-				SN:     vm.SN,
-				Hash:   vm.Hash,
-				Proof:  intactTS,
-				View:   vm.View,
-				Dealer: vm.Dealer,
+				SN:      vm.SN,
+				TxCount: vm.TxCount,
+				Hash:    vm.Hash,
+				Proof:   intactTS,
+				View:    vm.View,
+				Dealer:  vm.Dealer,
 			}
 
 			go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
@@ -566,6 +572,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 		}
 
 		var dataForNewView, proofForNewView []byte
+		var txCountForNewView int
 		if falseCount == 2*s.node.F+1 {
 			// 2f+1 false votes
 			data := []byte(fmt.Sprintf("%s%v%T", msgTagNameMap[SMVBAVoteTag], vm.View, false))
@@ -578,9 +585,10 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 		} else {
 			dataForNewView = someVoteMsgTrue.Hash
 			proofForNewView = someVoteMsgTrue.Proof
+			txCountForNewView = someVoteMsgTrue.TxCount
 		}
 
-		go s.RunOneMVBAView(usePrevData, dataForNewView, proofForNewView, vm.View)
+		go s.RunOneMVBAView(usePrevData, dataForNewView, proofForNewView, txCountForNewView, vm.View)
 
 	}
 

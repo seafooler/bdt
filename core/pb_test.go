@@ -10,18 +10,18 @@ func TestSimpleSinglePB(t *testing.T) {
 
 	originalData := []byte("seafooler")
 
-	if err := nodes[0].Smvba.spb.pb1.PBBroadcastData(originalData, nil, 1, 1); err != nil {
+	if err := nodes[0].Smvba.spb.pb1.PBBroadcastData(originalData, nil, 100, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 
 	data := <-nodes[0].Smvba.spb.pb1.pbOutputCh
 
-	if !bytes.Equal(originalData, data.Data) {
+	if !bytes.Equal(originalData, data.Hash) {
 		t.Fatalf("The QCed data does not equal the original one, original: %s, qced: %s",
-			originalData, data.Data[:len(data.Data)-1])
+			originalData, data.Hash[:len(data.Hash)-1])
 	}
 
-	if ok, err := nodes[0].Smvba.VerifyTS(data.Data, data.QC); !ok {
+	if ok, err := nodes[0].Smvba.VerifyTS(data.Hash, data.QC); !ok {
 		t.Fatal(err)
 	}
 }

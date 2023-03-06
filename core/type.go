@@ -30,6 +30,7 @@ var msgTagNameMap = map[uint8]string{
 
 type Block struct {
 	SN       int
+	TxNum    int
 	Reqs     []byte
 	Height   int
 	Proposer int
@@ -91,15 +92,17 @@ type SMVBAViewPhase struct {
 }
 
 type SMVBAPBVALMessage struct {
-	SN     int
-	Data   []byte
-	Proof  []byte
-	Dealer string // dealer and sender are the same
+	SN      int
+	TxCount int
+	Data    []byte
+	Proof   []byte
+	Dealer  string // dealer and sender are the same
 	SMVBAViewPhase
 }
 
 type SMVBAPBVOTMessage struct {
 	SN         int
+	TxCount    int
 	Hash       []byte
 	PartialSig []byte
 	Dealer     string
@@ -108,30 +111,34 @@ type SMVBAPBVOTMessage struct {
 }
 
 type SMVBAQCedData struct {
-	SN   int
-	Hash []byte
-	QC   []byte
+	SN      int
+	TxCount int
+	Hash    []byte
+	QC      []byte
 	SMVBAViewPhase
 }
 
 type SMVBAFinishMessage struct {
-	SN     int
-	Hash   []byte
-	QC     []byte
-	Dealer string
-	View   int
+	SN      int
+	Hash    []byte
+	QC      []byte
+	Dealer  string
+	TxCount int
+	View    int
 }
 
 type SMVBADoneShareMessage struct {
 	SN      int
 	TSShare []byte
 	Sender  string
+	TxCount int
 	View    int
 }
 
 // SMVBAPreVoteMessage must contain SNView
 type SMVBAPreVoteMessage struct {
 	SN                int
+	TxCount           int
 	Flag              bool
 	Dealer            string
 	Hash              []byte
@@ -143,12 +150,13 @@ type SMVBAPreVoteMessage struct {
 
 // SMVBAVoteMessage must contain SNView
 type SMVBAVoteMessage struct {
-	SN     int
-	Flag   bool
-	Dealer string
-	Hash   []byte
-	Proof  []byte // sigma_1 or sigma_{PN}
-	Pho    []byte // pho_{2,i} or pho_{vn, i}
+	SN      int
+	TxCount int
+	Flag    bool
+	Dealer  string
+	Hash    []byte
+	Proof   []byte // sigma_1 or sigma_{PN}
+	Pho     []byte // pho_{2,i} or pho_{vn, i}
 
 	Sender string
 
@@ -156,15 +164,17 @@ type SMVBAVoteMessage struct {
 }
 
 type SMVBAHaltMessage struct {
-	SN     int
-	Hash   []byte
-	Proof  []byte
-	Dealer string
-	View   int
+	SN      int
+	TxCount int
+	Hash    []byte
+	Proof   []byte
+	Dealer  string
+	View    int
 }
 
 type SMVBAReadyViewData struct {
 	SN          int
+	txCount     int
 	usePrevData bool // indicate if using the previous data
 	data        []byte
 	proof       []byte

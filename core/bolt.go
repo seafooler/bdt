@@ -15,7 +15,7 @@ type Bolt struct {
 
 	committedHeight      int
 	maxProofedHeight     int
-	proofedHeight        map[int]bool
+	proofedHeight        map[int]int
 	cachedHeight         map[int]bool
 	cachedVoteMsgs       map[int]map[int][]byte
 	cachedBlockProposals map[int]*BoltProposalMsg
@@ -37,7 +37,7 @@ func NewBolt(node *Node, leader int) *Bolt {
 		}),
 		leaderId:             leader,
 		committedHeight:      0,
-		proofedHeight:        make(map[int]bool),
+		proofedHeight:        make(map[int]int),
 		cachedHeight:         make(map[int]bool),
 		cachedVoteMsgs:       make(map[int]map[int][]byte),
 		cachedBlockProposals: make(map[int]*BoltProposalMsg),
@@ -60,22 +60,26 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 
 	for {
 		proofReady := <-b.proofReady
+		curTime := time.Now()
+		estimatdTxNum := int(curTime.Sub(b.node.lastBlockCreatedTime).Seconds() * float64(b.node.Config.Rate))
+		if estimatdTxNum > b.node.maxCachedTxs {
+			estimatdTxNum = b.node.maxCachedTxs
+		}
+
+		b.node.lastBlockCreatedTime = curTime
+
 		newBlock := &Block{
 			SN:       proofReady.SN,
+			TxNum:    estimatdTxNum,
 			Reqs:     NewTxBatch(b.node.MaxPayloadSize),
 			Height:   proofReady.Height + 1,
 			Proposer: b.node.Id,
 		}
 
-		//// For testing: trigger a timeout to switch from bolt to aba
-		//if newBlock.Height%50 == 49 {
-		//	return
-		//}
-
 		// simulate the ddos attack to the leader
-		if b.node.DDoS {
-			time.Sleep(time.Duration(b.node.NetworkDelay) * time.Second)
-		}
+		//if b.node.DDoS {
+		//	time.Sleep(time.Duration(b.node.NetworkDelay) * time.Second)
+		//}
 
 		if err := b.BroadcastProposalProof(newBlock, proofReady.Proof); err != nil {
 			b.bLogger.Error("fail to broadcast proposal and proof", "height", newBlock.Height,
@@ -176,7 +180,7 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 		return err
 	}
 
-	b.proofedHeight[pBlk.Height] = true
+	b.proofedHeight[pBlk.Height] = pBlk.TxNum
 	b.maxProofedHeight = pBlk.Height
 	delete(b.cachedHeight, pBlk.Height)
 
@@ -190,8 +194,8 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 
 // tryCommit must be wrapped in a lock
 func (b *Bolt) tryCommit(sn, height int) error {
-	if _, ok := b.proofedHeight[height-2]; ok {
-		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2)
+	if num, ok := b.proofedHeight[height-2]; ok {
+		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2, "tx_num", num)
 		// Todo: check the consecutive commitment
 		b.committedHeight = height - 2
 		delete(b.proofedHeight, height-2)
