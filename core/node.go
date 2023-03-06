@@ -320,3 +320,28 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 	}
 	return nil
 }
+
+// BroadcastSyncLaunchMsgs sends the PaceSyncMsg to help all the replicas launch simultaneously
+func (n *Node) BroadcastSyncLaunchMsgs() error {
+	return n.PlainBroadcast(PaceSyncMsgTag, PaceSyncMsg{SN: -1, Sender: n.Id, Epoch: -1}, nil)
+}
+
+func (n *Node) WaitForEnoughSyncLaunchMsgs() error {
+	msgCh := n.trans.MsgChan()
+	count := 0
+	for {
+		select {
+		case msg := <-msgCh:
+			switch msg.(type) {
+			case PaceSyncMsg:
+				count += 1
+				if count > n.N-3 {
+					return nil
+				}
+			default:
+				continue
+			}
+		}
+	}
+	return nil
+}
