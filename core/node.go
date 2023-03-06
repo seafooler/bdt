@@ -320,9 +320,11 @@ func (n *Node) BroadcastSyncLaunchMsgs() error {
 			if err != nil {
 				panic(err)
 			}
+			start := time.Now()
 			if err := conn.SendMsg(c, PaceSyncMsgTag, PaceSyncMsg{SN: -1, Sender: n.Id, Epoch: -1}, nil); err != nil {
 				panic(err)
 			}
+			fmt.Printf("Sending a message costs %d milliseconds\n", time.Now().Sub(start).Milliseconds())
 			if err = n.trans.ReturnConn(c); err != nil {
 				panic(err)
 			}
