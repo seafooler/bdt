@@ -553,7 +553,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			}
 
 			go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
-			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn,
+			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn,
 				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount)
 			go func() {
 				s.node.statusChangeSignal <- StatusChangeSignal{
@@ -611,7 +611,7 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 		s.logger.Debug("Data is output after consensus by receiving a halt message ", "replica", s.node.Name,
 			"sn", hm.SN, "node-view", s.view, "dealer", hm.Dealer, "hash", string(s.output))
 		go s.node.PlainBroadcast(SMVBAHaltTag, *hm, nil)
-		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn, "View", s.view,
+		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn, "View", s.view,
 			"dealer", hm.Dealer, "txNum", hm.TxCount)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
