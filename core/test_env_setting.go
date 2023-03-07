@@ -29,7 +29,7 @@ func Setup(numNode int, stat uint8, startPort int, logLevel int) []*Node {
 	for id, name := range id2NameMap {
 		conf := config.New(id, name, id2NameMap, name2IdMap, id2AddrMap[id], id2PortMap[id],
 			shares[id], pubKey, id2AddrMap, id2PortMap, 10, logLevel, 500, 0, false,
-			500, 512, 1000, 512, 20)
+			1000, 500, 512, 1000, 512, 20)
 
 		nodes[id] = NewNode(conf)
 		nodes[id].status = stat
