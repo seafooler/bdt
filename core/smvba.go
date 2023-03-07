@@ -362,7 +362,7 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 
 		go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
-			"dealer", finishMsgByCoin.Dealer, "hash", string(s.output), "txNum", txNum)
+			"dealer", finishMsgByCoin.Dealer, "txNum", txNum)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     sn,
@@ -553,7 +553,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 
 			go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
 			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn,
-				"msg.View", vm.View, "dealer", vm.Dealer, "hash", string(s.output), "txNum", vm.TxCount)
+				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount)
 			go func() {
 				s.node.statusChangeSignal <- StatusChangeSignal{
 					SN:     vm.SN,
@@ -611,7 +611,7 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 			"sn", hm.SN, "node-view", s.view, "dealer", hm.Dealer, "hash", string(s.output))
 		go s.node.PlainBroadcast(SMVBAHaltTag, *hm, nil)
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "sn", s.node.sn, "View", s.view,
-			"dealer", hm.Dealer, "hash", string(s.output), "txNum", hm.TxCount)
+			"dealer", hm.Dealer, "txNum", hm.TxCount)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     hm.SN,
