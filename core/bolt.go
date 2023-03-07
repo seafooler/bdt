@@ -79,7 +79,7 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 
 		//simulate the ddos attack to the leader
 		if b.node.DDoS {
-			time.Sleep(10 * time.Second)
+			time.Sleep(time.Millisecond * time.Duration(b.node.Config.DDoSDelay))
 		}
 
 		if err := b.BroadcastProposalProof(newBlock, proofReady.Proof); err != nil {
