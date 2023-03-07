@@ -252,7 +252,9 @@ func (b *ABA) tryOutputAgreement(sn int) {
 	} else {
 		b.estimated = values[0]
 		// Output can be set only once.
-		if b.output == nil && values[0]%2 == coin {
+		//if b.output == nil && values[0]%2 == coin {
+		// Mock the no-coin comparison ABA
+		if b.output == nil {
 			b.output = values[0]
 			b.aLogger.Info("output the agreed value", "replica", b.node.Id, "value", values[0],
 				"round", b.round)
