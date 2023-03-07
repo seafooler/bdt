@@ -77,10 +77,10 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 			Proposer: b.node.Id,
 		}
 
-		// simulate the ddos attack to the leader
-		//if b.node.DDoS {
-		//	time.Sleep(time.Duration(b.node.NetworkDelay) * time.Second)
-		//}
+		//simulate the ddos attack to the leader
+		if b.node.DDoS {
+			time.Sleep(10 * time.Second)
+		}
 
 		if err := b.BroadcastProposalProof(newBlock, proofReady.Proof); err != nil {
 			b.bLogger.Error("fail to broadcast proposal and proof", "height", newBlock.Height,
