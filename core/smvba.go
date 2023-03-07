@@ -399,20 +399,22 @@ func (s *SMVBA) BroadcastPreVote(sn, v int) error {
 	// TODO: bug?
 	lockData, ok := s.lockMessageMap[v][coin2NodeName]
 	pvm := SMVBAPreVoteMessage{
-		SN:      sn,
-		TxCount: lockData.TxCount,
-		Dealer:  coin2NodeName,
-		Sender:  s.node.Name,
-		View:    v,
+		SN: sn,
+
+		Dealer: coin2NodeName,
+		Sender: s.node.Name,
+		View:   v,
 	}
 	if ok {
 		// lock data exists
 		pvm.Flag = true
+		pvm.TxCount = lockData.TxCount
 		pvm.Hash = lockData.Data
 		pvm.ProofOrPartialSig = lockData.Proof
 	} else {
 		pvm.Flag = false
 		pvm.Hash = nil
+		pvm.TxCount = 0
 		pvm.ProofOrPartialSig = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v",
 			msgTagNameMap[SMVBAPreVoteTag], v)))
 	}
