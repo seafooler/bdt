@@ -350,7 +350,7 @@ func SendMsg(conn *NetConn, rpcType uint8, args interface{}, sig []byte) error {
 	//conn.enc.Encode(args)
 	//fmt.Printf("Encoding data costs: %d ms\n", time.Now().Sub(start).Milliseconds())
 
-	start = time.Now()
+	start := time.Now()
 	// Send the msg
 	if err := conn.enc.Encode(args); err != nil {
 		conn.Release()
