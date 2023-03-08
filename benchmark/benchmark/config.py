@@ -12,8 +12,14 @@ class BenchParameters:
             nodes = nodes if isinstance(nodes, list) else [nodes]
             if not nodes or any(x <= 0 for x in nodes):
                 raise ConfigError('Missing or invalid number of nodes')
-
             self.nodes = [int(x) for x in nodes]
+
+            timeouts = json['timeout']
+            timeouts = timeouts if isinstance(timeouts, list) else [timeouts]
+            if not timeouts or any(x < 0 for x in timeouts):
+                raise ConfigError('Missing or invalid number of timeout')
+            self.timeouts = [int(x) for x in timeouts]
+
             self.faults = int(json['faults'])
             self.duration = int(json['duration'])
             self.timeout_delay = int(json['timeout_delay'])

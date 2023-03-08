@@ -12,7 +12,7 @@ import subprocess
 from benchmark.config import BenchParameters, ConfigError
 from benchmark.utils import BenchError, Print, PathMaker, progress_bar
 from benchmark.commands import CommandMaker
-from benchmark.logs import LogParser, ParseError
+from benchmark.logspespath import LogParser, ParseError
 from aws.instance import InstanceManager
 
 
@@ -54,20 +54,20 @@ class Bench:
     def install(self):
         Print.info('Installing golang and cloning the repo...')
         cmd = [
-            # 'sudo apt-get update',
-            # 'sudo apt-get -y upgrade',
-            # 'sudo apt-get -y autoremove',
-            #
-            # # The following dependencies prevent the error: [error: linker `cc` not found].
-            # 'sudo apt-get -y install build-essential',
-            # 'sudo apt-get -y install cmake',
-            #
-            # # Install golang
-            # 'wget https://go.dev/dl/go1.18.linux-amd64.tar.gz',
-            # 'tar -zxvf go1.18.linux-amd64.tar.gz',
-            # 'sudo mv go /usr/local',
-            # 'echo \'export PATH=$PATH:/usr/local/go/bin\' >> ~/.bashrc',
-            # 'source ~/.bashrc',
+            'sudo apt-get update',
+            'sudo apt-get -y upgrade',
+            'sudo apt-get -y autoremove',
+
+            # The following dependencies prevent the error: [error: linker `cc` not found].
+            'sudo apt-get -y install build-essential',
+            'sudo apt-get -y install cmake',
+
+            # Install golang
+            'wget https://go.dev/dl/go1.18.linux-amd64.tar.gz',
+            'tar -zxvf go1.18.linux-amd64.tar.gz',
+            'sudo mv go /usr/local',
+            'echo \'export PATH=$PATH:/usr/local/go/bin\' >> ~/.bashrc',
+            'source ~/.bashrc',
 
             # Clone the repo.
             f'(git clone {self.settings.repo_url} || (cd {self.settings.repo_name} ; git pull))'
@@ -129,7 +129,7 @@ class Bench:
         g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
         g.run(' && '.join(cmd), hide=True)
 
-    def _config(self, hosts):
+    def _config(self, hosts, timeout):
         Print.info('Generating configuration files...')
         # Cleanup all local configuration files.
         cmd = CommandMaker.cleanup()
@@ -141,8 +141,11 @@ class Bench:
 
         subprocess.run(['pwd'], shell=True, stderr=subprocess.DEVNULL)
 
+        timeout_elem = "timeout: " + str(timeout) + "\n"
+
         with open('/vagrant/bdt/benchmark/config_temp.yaml', 'a') as f:
             f.write(ips_elem)
+            f.write(timeout_elem)
 
         Print.heading(f'hosts: {hosts}')
 
@@ -229,13 +232,6 @@ class Bench:
         Print.info(f'{bench_parameters.faults} faults')
 
         hosts = selected_hosts[:bench_parameters.nodes[0]]
-        # Upload all configuration files.
-        try:
-            self._config(hosts)
-            # self._config()
-        except (subprocess.SubprocessError, GroupException) as e:
-            e = FabricError(e) if isinstance(e, GroupException) else e
-            Print.error(BenchError('Failed to configure nodes', e))
 
         # Run benchmarks.
         for n in bench_parameters.nodes:
@@ -246,18 +242,31 @@ class Bench:
             hosts = hosts[:n-faults]
 
             # Run the benchmark.
-            for i in range(bench_parameters.runs):
-                Print.heading(f'Run {i+1}/{bench_parameters.runs}')
+            for tot in bench_parameters.timeouts:
+                # Upload all configuration files.
                 try:
-                    self._run_single(
-                        hosts, bench_parameters
-                    )
-                    self._logs(hosts, faults).print(PathMaker.result_file(
-                        n, faults
-                    ))
-                except (subprocess.SubprocessError, GroupException, ParseError) as e:
-                    self.kill(hosts=hosts)
-                    if isinstance(e, GroupException):
-                        e = FabricError(e)
-                    Print.error(BenchError('Benchmark failed', e))
-                    continue
+                    self._config(hosts, tot)
+                    # self._config()
+                except (subprocess.SubprocessError, GroupException) as e:
+                    e = FabricError(e) if isinstance(e, GroupException) else e
+                    Print.error(BenchError('Failed to configure nodes', e))
+
+                boundary = "------------------- " + str(tot) + "ms -------------------"
+                with open('/vagrant/bdt/benchmark/results/bench-16-0.txt', 'a') as f:
+                    f.write(boundary)
+
+                for i in range(bench_parameters.runs):
+                    Print.heading(f'Run {i+1}/{bench_parameters.runs}')
+                    try:
+                        self._run_single(
+                            hosts, bench_parameters
+                        )
+                        self._logs(hosts, faults).print(PathMaker.result_file(
+                            n, faults
+                        ))
+                    except (subprocess.SubprocessError, GroupException, ParseError) as e:
+                        self.kill(hosts=hosts)
+                        if isinstance(e, GroupException):
+                            e = FabricError(e)
+                        Print.error(BenchError('Benchmark failed', e))
+                        continue

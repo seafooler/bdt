@@ -11,10 +11,10 @@
   "repo": {
     "name": "bdt",
     "url": "https://github.com/seafooler/bdt.git",
-    "branch": "master"
+    "branch": "smvba-test"
   },
   "instances": {
     "type": "m5d.xlarge",
-    "regions": ["us-east-1", "eu-north-1","ap-northeast-1", "ap-southeast-2", "us-west-1"]
+    "regions": ["us-east-1", "eu-north-1","ap-northeast-1", "ap-southeast-2"]
   }
 }

@@ -4,3 +4,4 @@ config_gen/node*.yaml
 bdt
 node*.yaml
 logs*
+results
