@@ -346,11 +346,17 @@ func SendMsg(conn *NetConn, rpcType uint8, args interface{}, sig []byte) error {
 		return err
 	}
 
+	//start := time.Now()
+	//conn.enc.Encode(args)
+	//fmt.Printf("Encoding data costs: %d ms\n", time.Now().Sub(start).Milliseconds())
+
+	start = time.Now()
 	// Send the msg
 	if err := conn.enc.Encode(args); err != nil {
 		conn.Release()
 		return err
 	}
+	fmt.Printf("Sending plus encoding data costs: %d ms\n", time.Now().Sub(start).Milliseconds())
 
 	//// Send the ED25519 signature
 	//if err := conn.enc.Encode(sig); err != nil {
