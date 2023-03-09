@@ -72,7 +72,7 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 		newBlock := &Block{
 			SN:       proofReady.SN,
 			TxNum:    estimatdTxNum,
-			Reqs:     NewTxBatch(100000, 512),
+			Reqs:     NewTxBatch(100000, 250),
 			Height:   proofReady.Height + 1,
 			Proposer: b.node.Id,
 		}
