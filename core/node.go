@@ -98,6 +98,9 @@ func (n *Node) StartP2PPayLoadListen() error {
 // BroadcastPayLoad mocks the underlying payload broadcast
 func (n *Node) BroadcastPayLoad() {
 	payLoadFullTime := 1000 * float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
+
+	n.logger.Info("payloadFullTime", "ms", payLoadFullTime)
+
 	for {
 		time.Sleep(time.Duration(payLoadFullTime) * time.Millisecond)
 		txNum := int(float32(n.Rate) * payLoadFullTime)
@@ -105,7 +108,7 @@ func (n *Node) BroadcastPayLoad() {
 		if err != nil {
 			panic(err)
 		}
-
+		start := time.Now()
 		var buf [HASHSIZE]byte
 		copy(buf[0:HASHSIZE], mockHash[:])
 		payLoadMsg := PayLoadMsg{
@@ -114,10 +117,13 @@ func (n *Node) BroadcastPayLoad() {
 			Hash: buf,
 			Reqs: make([][]byte, txNum),
 		}
+		n.logger.Info("1st step takes", "ms", time.Now().Sub(start).Milliseconds())
+		start = time.Now()
 		for i := 0; i < txNum; i++ {
 			payLoadMsg.Reqs[i] = make([]byte, n.Config.TxSize)
 			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
+		n.logger.Info("2nd step takes", "ms", time.Now().Sub(start).Milliseconds())
 		n.PlainBroadcastPayLoad(PayLoadMsgTag, payLoadMsg, buf[:], nil)
 		time.Sleep(time.Millisecond * 100)
 	}
