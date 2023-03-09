@@ -199,7 +199,11 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 func (b *Bolt) tryCommit(sn, height int) error {
 	if payLoadHashes, ok := b.proofedHeight[height-2]; ok {
 		for _, plHash := range payLoadHashes {
-			delete(b.node.payLoads, plHash)
+			if _, ok := b.node.payLoads[plHash]; ok {
+				delete(b.node.payLoads, plHash)
+			} else {
+				b.node.committedPayloads[plHash] = true
+			}
 		}
 		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2, "payload_cnt",
 			len(payLoadHashes), "payload_after_commit", len(b.node.payLoads))

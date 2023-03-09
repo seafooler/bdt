@@ -370,11 +370,7 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 			s.logger.Error("payLoadHashes has not received by the node")
 		}
 
-		s.node.Lock()
-		for _, plHash := range payLoadHashes {
-			delete(s.node.payLoads, plHash)
-		}
-		s.node.Unlock()
+		s.updatePayloads(payLoadHashes)
 
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
 			"dealer", finishMsgByCoin.Dealer, "txNum", txNum)
@@ -404,6 +400,18 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 		// No Finish message corresponding to the coin is received, start the view change
 		go s.BroadcastPreVote(sn, v)
 	}
+}
+
+func (s *SMVBA) updatePayloads(payLoadHashes [][HASHSIZE]byte) {
+	s.node.Lock()
+	for _, plHash := range payLoadHashes {
+		if _, ok := s.node.payLoads[plHash]; ok {
+			delete(s.node.payLoads, plHash)
+		} else {
+			s.node.committedPayloads[plHash] = true
+		}
+	}
+	s.node.Unlock()
 }
 
 func (s *SMVBA) BroadcastPreVote(sn, v int) error {
@@ -571,11 +579,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 				s.logger.Error("payLoadHashes has not received by the node")
 			}
 
-			s.node.Lock()
-			for _, plHash := range payLoadHashes {
-				delete(s.node.payLoads, plHash)
-			}
-			s.node.Unlock()
+			s.updatePayloads(payLoadHashes)
 
 			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn,
 				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount)
@@ -642,11 +646,7 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 			s.logger.Error("payLoadHashes has not received by the node")
 		}
 
-		s.node.Lock()
-		for _, plHash := range payLoadHashes {
-			delete(s.node.payLoads, plHash)
-		}
-		s.node.Unlock()
+		s.updatePayloads(payLoadHashes)
 
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn, "View", s.view,
 			"dealer", hm.Dealer, "txNum", hm.TxCount)

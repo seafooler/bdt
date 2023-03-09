@@ -27,9 +27,10 @@ type Node struct {
 
 	trans *conn.NetworkTransport
 
-	payLoadTrans    *conn.NetworkTransport
-	payLoads        map[[HASHSIZE]byte]bool
-	maxNumInPayLoad int
+	payLoadTrans      *conn.NetworkTransport
+	payLoads          map[[HASHSIZE]byte]bool
+	committedPayloads map[[HASHSIZE]byte]bool
+	maxNumInPayLoad   int
 
 	status             uint8 // 0, 1, 2 indicates the node is in the status of bolt, aba, or smvba
 	statusChangeSignal chan StatusChangeSignal
@@ -55,8 +56,9 @@ func NewNode(conf *config.Config) *Node {
 		// timer will be reset in message loop
 		timer: time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
 		//maxCachedTxs: conf.MaxPayloadCount * (conf.MaxPayloadSize / conf.TxSize),
-		maxNumInPayLoad: conf.MaxPayloadSize / conf.TxSize,
-		payLoads:        make(map[[HASHSIZE]byte]bool),
+		maxNumInPayLoad:   conf.MaxPayloadSize / conf.TxSize,
+		payLoads:          make(map[[HASHSIZE]byte]bool),
+		committedPayloads: make(map[[HASHSIZE]byte]bool),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -130,9 +132,14 @@ func (n *Node) HandlePayLoadMsgsLoop() {
 			switch msgAsserted := msg.(type) {
 			case PayLoadMsg:
 				n.Lock()
-				n.payLoads[msgAsserted.Hash] = true
-				n.logger.Info("Receive a payload", "sender", msgAsserted.Sender, "hash",
-					string(msgAsserted.Hash[:]), "payload count", len(n.payLoads))
+				if _, ok := n.committedPayloads[msgAsserted.Hash]; ok {
+					n.logger.Info("Receive an already committed payload", "sender", msgAsserted.Sender, "hash",
+						string(msgAsserted.Hash[:]))
+				} else {
+					n.payLoads[msgAsserted.Hash] = true
+					n.logger.Info("Receive a payload", "sender", msgAsserted.Sender, "hash",
+						string(msgAsserted.Hash[:]), "payload count", len(n.payLoads))
+				}
 				n.Unlock()
 			default:
 				n.logger.Error("Unknown type of the received message from payload transportion!")
