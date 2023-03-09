@@ -84,7 +84,7 @@ func (n *Node) StartP2PListen() error {
 // StartP2PPayLoadListen starts the node to listen for P2P connection for payload broadcast.
 func (n *Node) StartP2PPayLoadListen() error {
 	var err error
-	n.trans, err = conn.NewTCPTransport(":"+n.P2pPortPayload, 2*time.Second,
+	n.payLoadTrans, err = conn.NewTCPTransport(":"+n.P2pPortPayload, 2*time.Second,
 		nil, n.MaxPool, n.reflectedTypesMap)
 	if err != nil {
 		return err
@@ -379,7 +379,7 @@ func (n *Node) EstablishP2PPayloadConns() error {
 		if err != nil {
 			return err
 		}
-		n.trans.ReturnConn(conn)
+		n.payLoadTrans.ReturnConn(conn)
 		n.logger.Debug("connection has been established", "sender", n.Name, "receiver", addr)
 	}
 	return nil
