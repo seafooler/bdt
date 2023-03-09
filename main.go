@@ -36,8 +36,8 @@ func main() {
 	}
 
 	// Help all the replicas to start simultaneously
-	node.BroadcastSyncLaunchMsgs()
-	node.WaitForEnoughSyncLaunchMsgs()
+	//node.BroadcastSyncLaunchMsgs()
+	//node.WaitForEnoughSyncLaunchMsgs()
 
 	go node.HandleMsgsLoop()
 
