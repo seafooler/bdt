@@ -6,7 +6,7 @@ const HASHSIZE = 32
 func NewTxBatch(txNum, txSize int) []byte {
 	if txNum > 1 {
 		var payload = make([]byte, txNum*txSize)
-		payload[txNum*HASHSIZE-1] = 1
+		payload[txNum*txSize-1] = 1
 		return payload
 	} else {
 		return nil
