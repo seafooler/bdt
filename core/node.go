@@ -303,12 +303,15 @@ func (n *Node) EstablishP2PConns() error {
 
 // SendMsg sends a message to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
 func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) error {
+	start := time.Now()
 	c, err := n.trans.GetConn(addrPort)
+	n.logger.Info("Get a connection costs", "ms", time.Now().Sub(start).Milliseconds(),
+		"tag", tag)
 	if err != nil {
 		return err
 	}
 	time.Sleep(time.Millisecond * time.Duration(n.Config.MockLatency))
-	start := time.Now()
+	start = time.Now()
 	if err := conn.SendMsg(c, tag, data, sig); err != nil {
 		return err
 	}
