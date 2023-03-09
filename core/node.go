@@ -118,7 +118,7 @@ func (n *Node) BroadcastPayLoad() {
 			payLoadMsg.Reqs[i] = make([]byte, n.Config.TxSize)
 			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
-		n.PlainBroadcastPayLoad(PayLoadMsgTag, payLoadMsg, nil)
+		n.PlainBroadcastPayLoad(PayLoadMsgTag, payLoadMsg, buf[:], nil)
 		time.Sleep(time.Millisecond * 100)
 	}
 }
@@ -417,7 +417,7 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 }
 
 // SendPayLoad sends a payload to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
-func (n *Node) SendPayLoad(tag byte, data interface{}, sig []byte, addrPort string) error {
+func (n *Node) SendPayLoad(tag byte, data interface{}, hash, sig []byte, addrPort string) error {
 	start := time.Now()
 	c, err := n.payLoadTrans.GetConn(addrPort)
 	n.logger.Info("Get a payload connection costs", "ms", time.Now().Sub(start).Milliseconds(),
@@ -430,7 +430,7 @@ func (n *Node) SendPayLoad(tag byte, data interface{}, sig []byte, addrPort stri
 		return err
 	}
 	n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(),
-		"tag", tag)
+		"tag", tag, "hash", hash)
 
 	if err = n.payLoadTrans.ReturnConn(c); err != nil {
 		return err
@@ -456,16 +456,14 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 }
 
 // PlainBroadcastPayLoad broadcasts the payload in its best effort
-func (n *Node) PlainBroadcastPayLoad(tag byte, data interface{}, sig []byte) error {
+func (n *Node) PlainBroadcastPayLoad(tag byte, data interface{}, hash, sig []byte) error {
 	for i, a := range n.Id2AddrMap {
 		go func(id int, addr string) {
 			port := n.Id2PortPayLoadMap[id]
 			addrPort := addr + ":" + port
-			start := time.Now()
-			if err := n.SendPayLoad(tag, data, sig, addrPort); err != nil {
+			if err := n.SendPayLoad(tag, data, hash, sig, addrPort); err != nil {
 				panic(err)
 			}
-			n.logger.Info("Broadcasting a payload", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
 
 		}(i, a)
 	}
