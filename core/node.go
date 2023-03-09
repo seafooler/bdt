@@ -312,8 +312,8 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 	if err := conn.SendMsg(c, tag, data, sig); err != nil {
 		return err
 	}
-	n.logger.Info("Sending message: %d ms, tag: %d\n", time.Now().Sub(start).Milliseconds(),
-		tag)
+	n.logger.Info("Sending message", "ms", time.Now().Sub(start).Milliseconds(),
+		"tag", tag)
 
 	if err = n.trans.ReturnConn(c); err != nil {
 		return err
