@@ -324,11 +324,11 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 		go func(id int, addr string) {
 			port := n.Id2PortMap[id]
 			addrPort := addr + ":" + port
-			//start := time.Now()
+			start := time.Now()
 			if err := n.SendMsg(tag, data, sig, addrPort); err != nil {
 				panic(err)
 			}
-			//n.logger.Info("Broadcasting a message", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
+			n.logger.Info("Broadcasting a message", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
 
 		}(i, a)
 	}
