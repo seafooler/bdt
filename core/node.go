@@ -56,6 +56,7 @@ func NewNode(conf *config.Config) *Node {
 		timer: time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
 		//maxCachedTxs: conf.MaxPayloadCount * (conf.MaxPayloadSize / conf.TxSize),
 		maxNumInPayLoad: conf.MaxPayloadSize / conf.TxSize,
+		payLoads:        make(map[[HASHSIZE]byte]bool),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
