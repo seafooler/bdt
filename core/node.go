@@ -308,9 +308,12 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 		return err
 	}
 	time.Sleep(time.Millisecond * time.Duration(n.Config.MockLatency))
+	start := time.Now()
 	if err := conn.SendMsg(c, tag, data, sig); err != nil {
 		return err
 	}
+	n.logger.Info("Sending message: %d ms, tag: %d, data_len: %d\n", time.Now().Sub(start).Milliseconds(),
+		tag, reflect.ValueOf(data).Len())
 
 	if err = n.trans.ReturnConn(c); err != nil {
 		return err
