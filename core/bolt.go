@@ -69,6 +69,9 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 
 		// the next leader is height%n
 		if b.node.Id != (proofReady.Height+1)%b.node.N {
+			b.bLogger.Info("b.node.Id != (proofReady.Height+1)%b.node.N", "b.node.Id", b.node.Id,
+				"(proofReady.Height+1)%b.node.N", (proofReady.Height+1)%b.node.N, "proofReady.Height", proofReady.Height,
+				"b.node.N", b.node.N)
 			continue
 		}
 
@@ -157,7 +160,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	} else {
 		b.bLogger.Debug("successfully vote for the block", "block_index", pm.Height)
 	}
-	if b.leaderId == b.node.Id {
+	if b.node.Id == pm.Height%b.node.N {
 		return b.tryAssembleProof(pm.Height)
 	} else {
 		return nil
