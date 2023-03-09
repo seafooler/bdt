@@ -49,8 +49,6 @@ func NewBolt(node *Node, leader int) *Bolt {
 func (b *Bolt) ProposalLoop(startHeight int) {
 	//b.node.lastBlockCreatedTime = time.Now()
 	if b.node.Id != b.leaderId {
-		return
-	} else {
 		go func() {
 			b.proofReady <- ProofData{
 				Proof:  nil,
@@ -68,6 +66,11 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 		//}
 		//
 		//b.node.lastBlockCreatedTime = curTime
+
+		// the next leader is height%n
+		if b.node.Id != (proofReady.Height+1)%b.node.N {
+			continue
+		}
 
 		payLoadHashes, cnt := b.node.createBlock()
 
@@ -145,7 +148,8 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		Height: pm.Height,
 		Voter:  b.node.Id,
 	}
-	leaderAddrPort := b.node.Id2AddrMap[b.leaderId] + ":" + b.node.Id2PortMap[b.leaderId]
+	// the next leader is (pm.Height+1)%b.node.N
+	leaderAddrPort := b.node.Id2AddrMap[b.leaderId] + ":" + b.node.Id2PortMap[(pm.Height+1)%b.node.N]
 	err = b.node.SendMsg(BoltVoteMsgTag, boltVoteMsg, nil, leaderAddrPort)
 	if err != nil {
 		b.bLogger.Error("fail to vote for the block", "block_index", pm.Height)
