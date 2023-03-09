@@ -15,7 +15,7 @@ type Bolt struct {
 
 	committedHeight      int
 	maxProofedHeight     int
-	proofedHeight        map[int]int
+	proofedHeight        map[int][][HASHSIZE]byte
 	cachedHeight         map[int]bool
 	cachedVoteMsgs       map[int]map[int][]byte
 	cachedBlockProposals map[int]*BoltProposalMsg
@@ -37,7 +37,7 @@ func NewBolt(node *Node, leader int) *Bolt {
 		}),
 		leaderId:             leader,
 		committedHeight:      0,
-		proofedHeight:        make(map[int]int),
+		proofedHeight:        make(map[int][][HASHSIZE]byte),
 		cachedHeight:         make(map[int]bool),
 		cachedVoteMsgs:       make(map[int]map[int][]byte),
 		cachedBlockProposals: make(map[int]*BoltProposalMsg),
@@ -47,7 +47,7 @@ func NewBolt(node *Node, leader int) *Bolt {
 }
 
 func (b *Bolt) ProposalLoop(startHeight int) {
-	b.node.lastBlockCreatedTime = time.Now()
+	//b.node.lastBlockCreatedTime = time.Now()
 	if b.node.Id != b.leaderId {
 		return
 	} else {
@@ -61,20 +61,22 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 
 	for {
 		proofReady := <-b.proofReady
-		curTime := time.Now()
-		estimatdTxNum := int(curTime.Sub(b.node.lastBlockCreatedTime).Seconds() * float64(b.node.Config.Rate))
-		if estimatdTxNum > b.node.maxCachedTxs {
-			estimatdTxNum = b.node.maxCachedTxs
-		}
+		//curTime := time.Now()
+		//estimatdTxNum := int(curTime.Sub(b.node.lastBlockCreatedTime).Seconds() * float64(b.node.Config.Rate))
+		//if estimatdTxNum > b.node.maxCachedTxs {
+		//	estimatdTxNum = b.node.maxCachedTxs
+		//}
+		//
+		//b.node.lastBlockCreatedTime = curTime
 
-		b.node.lastBlockCreatedTime = curTime
+		payLoadHashes, cnt := b.node.createBlock()
 
 		newBlock := &Block{
-			SN:       proofReady.SN,
-			TxNum:    estimatdTxNum,
-			Reqs:     NewTxBatch(10000, 250),
-			Height:   proofReady.Height + 1,
-			Proposer: b.node.Id,
+			SN:            proofReady.SN,
+			TxNum:         cnt * b.node.maxNumInPayLoad,
+			PayLoadHashes: payLoadHashes,
+			Height:        proofReady.Height + 1,
+			Proposer:      b.node.Id,
 		}
 
 		//simulate the ddos attack to the leader
@@ -110,8 +112,6 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	b.Lock()
 	defer b.Unlock()
 	b.cachedHeight[pm.Height] = true
-	// A simple dealing to reduce the memory consumption
-	pm.Reqs = nil
 	b.cachedBlockProposals[pm.Height] = pm
 	// do not retrieve the previous block nor verify the proof for the 0th block
 	// try to cache a previous block
@@ -183,7 +183,7 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 		return err
 	}
 
-	b.proofedHeight[pBlk.Height] = pBlk.TxNum
+	b.proofedHeight[pBlk.Height] = pBlk.PayLoadHashes
 	b.maxProofedHeight = pBlk.Height
 	delete(b.cachedHeight, pBlk.Height)
 
@@ -197,8 +197,12 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 
 // tryCommit must be wrapped in a lock
 func (b *Bolt) tryCommit(sn, height int) error {
-	if num, ok := b.proofedHeight[height-2]; ok {
-		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2, "tx_num", num)
+	if payLoadHashes, ok := b.proofedHeight[height-2]; ok {
+		for _, plHash := range payLoadHashes {
+			delete(b.node.payLoads, plHash)
+		}
+		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2, "payload_cnt",
+			len(payLoadHashes), "payload_after_commit", len(b.node.payLoads))
 		// Todo: check the consecutive commitment
 		b.committedHeight = height - 2
 		delete(b.proofedHeight, height-2)

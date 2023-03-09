@@ -27,6 +27,10 @@ type Node struct {
 
 	trans *conn.NetworkTransport
 
+	payLoadTrans    *conn.NetworkTransport
+	payLoads        map[[HASHSIZE]byte]bool
+	maxNumInPayLoad int
+
 	status             uint8 // 0, 1, 2 indicates the node is in the status of bolt, aba, or smvba
 	statusChangeSignal chan StatusChangeSignal
 
@@ -34,8 +38,8 @@ type Node struct {
 	timer      *time.Timer
 
 	// mock the transactions sent from clients
-	lastBlockCreatedTime time.Time
-	maxCachedTxs         int
+	//lastBlockCreatedTime time.Time
+	//maxCachedTxs         int
 
 	payLoadTxNum int
 
@@ -49,8 +53,9 @@ func NewNode(conf *config.Config) *Node {
 		statusChangeSignal: make(chan StatusChangeSignal),
 		cachedMsgs:         make(map[int][3][]interface{}),
 		// timer will be reset in message loop
-		timer:        time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
-		maxCachedTxs: conf.MaxPayloadCount * (conf.MaxPayloadSize / conf.TxSize),
+		timer: time.NewTimer(time.Duration(math.MaxInt32) * time.Second),
+		//maxCachedTxs: conf.MaxPayloadCount * (conf.MaxPayloadSize / conf.TxSize),
+		maxNumInPayLoad: conf.MaxPayloadSize / conf.TxSize,
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
@@ -76,21 +81,62 @@ func (n *Node) StartP2PListen() error {
 	return nil
 }
 
+// StartP2PPayLoadListen starts the node to listen for P2P connection for payload broadcast.
+func (n *Node) StartP2PPayLoadListen() error {
+	var err error
+	n.trans, err = conn.NewTCPTransport(":"+n.P2pPortPayload, 2*time.Second,
+		nil, n.MaxPool, n.reflectedTypesMap)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // BroadcastPayLoad mocks the underlying payload broadcast
 func (n *Node) BroadcastPayLoad() {
 	payLoadFullTime := 1000 * float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
 	for {
 		time.Sleep(time.Duration(payLoadFullTime) * time.Millisecond)
 		txNum := int(float32(n.Rate) * payLoadFullTime)
+		mockHash, err := genMsgHashSum([]byte(fmt.Sprintf("%d%v", n.Id, time.Now())))
+		if err != nil {
+			panic(err)
+		}
+
+		var buf [HASHSIZE]byte
+		copy(mockHash[:], buf[0:HASHSIZE])
 		payLoadMsg := PayLoadMsg{
+			Sender: n.Name,
+			// Mock a hash
+			Hash: buf,
 			Reqs: make([][]byte, txNum),
 		}
 		for i := 0; i < txNum; i++ {
-			payLoadMsg.Reqs[i] = make([]byte, 32)
-			payLoadMsg.Reqs[i][31] = '0'
+			payLoadMsg.Reqs[i] = make([]byte, n.Config.TxSize)
+			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
-		n.PlainBroadcast(PayLoadMsgTag, payLoadMsg, nil)
-		time.Sleep(time.Millisecond * 200)
+		n.PlainBroadcastPayLoad(PayLoadMsgTag, payLoadMsg, nil)
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func (n *Node) HandlePayLoadMsgsLoop() {
+	msgCh := n.payLoadTrans.MsgChan()
+
+	for {
+		select {
+		case msg := <-msgCh:
+			switch msgAsserted := msg.(type) {
+			case PayLoadMsg:
+				n.Lock()
+				n.payLoads[msgAsserted.Hash] = true
+				n.logger.Info("Receive a payload", "sender", msgAsserted.Sender, "hash",
+					string(msgAsserted.Hash[:]), "payload count", len(n.payLoads))
+				n.Unlock()
+			default:
+				n.logger.Error("Unknown type of the received message from payload transportion!")
+			}
+		}
 	}
 }
 
@@ -165,8 +211,6 @@ func (n *Node) HandleMsgsLoop() {
 				if n.processItNow(msgAsserted.SN, 2, msgAsserted) {
 					go n.Smvba.HandleHaltMsg(&msgAsserted)
 				}
-			case PayLoadMsg:
-				continue
 			default:
 				n.logger.Error("Unknown type of the received message!")
 			}
@@ -197,15 +241,17 @@ func (n *Node) HandleMsgsLoop() {
 				case 2:
 					n.Smvba = NewSMVBA(n)
 					n.restoreMessages(2)
-					curTime := time.Now()
-					estimatdTxNum := int(curTime.Sub(n.lastBlockCreatedTime).Seconds() * float64(n.Config.Rate))
-					if estimatdTxNum > n.maxCachedTxs {
-						estimatdTxNum = n.maxCachedTxs
-					}
+					//curTime := time.Now()
+					//estimatdTxNum := int(curTime.Sub(n.lastBlockCreatedTime).Seconds() * float64(n.Config.Rate))
+					//if estimatdTxNum > n.maxCachedTxs {
+					//	estimatdTxNum = n.maxCachedTxs
+					//}
+					//
+					//n.lastBlockCreatedTime = curTime
 
-					n.lastBlockCreatedTime = curTime
+					payLoadHashes, cnt := n.createBlock()
 
-					go n.Smvba.RunOneMVBAView(false, NewTxBatch(estimatdTxNum, 512), nil, estimatdTxNum, -1)
+					go n.Smvba.RunOneMVBAView(false, payLoadHashes, nil, cnt*n.maxNumInPayLoad, -1)
 				case 0:
 					n.sn = n.sn + 1
 					lastBoltCommittedHeight := n.Bolt.committedHeight
@@ -218,6 +264,27 @@ func (n *Node) HandleMsgsLoop() {
 			n.Unlock()
 		}
 	}
+}
+
+func (n *Node) createBlock() ([][HASHSIZE]byte, int) {
+	var payLoadHashes [][HASHSIZE]byte
+	n.Lock()
+	defer n.Unlock()
+	payLoadCount := len(n.payLoads)
+	if payLoadCount < n.MaxPayloadCount {
+		payLoadHashes = make([][HASHSIZE]byte, payLoadCount)
+	} else {
+		payLoadHashes = make([][HASHSIZE]byte, n.MaxPayloadCount)
+	}
+	i := 0
+	for ph, _ := range n.payLoads {
+		payLoadHashes[i] = ph
+		if i >= len(payLoadHashes) {
+			break
+		}
+		i++
+	}
+	return payLoadHashes, i - 1
 }
 
 // processItNow caches messages from the future SNs or stages or ignore obsolete messages
@@ -301,6 +368,23 @@ func (n *Node) EstablishP2PConns() error {
 	return nil
 }
 
+// EstablishP2PPayloadConns establishes P2P connections for payloads with other nodes.
+func (n *Node) EstablishP2PPayloadConns() error {
+	if n.payLoadTrans == nil {
+		return errors.New("networktransport has not been created")
+	}
+	for name, addr := range n.Id2AddrMap {
+		addrWithPort := addr + ":" + n.Id2PortPayLoadMap[name]
+		conn, err := n.payLoadTrans.GetConn(addrWithPort)
+		if err != nil {
+			return err
+		}
+		n.trans.ReturnConn(conn)
+		n.logger.Debug("connection has been established", "sender", n.Name, "receiver", addr)
+	}
+	return nil
+}
+
 // SendMsg sends a message to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
 func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) error {
 	start := time.Now()
@@ -324,6 +408,28 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 	return nil
 }
 
+// SendPayLoad sends a payload to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
+func (n *Node) SendPayLoad(tag byte, data interface{}, sig []byte, addrPort string) error {
+	start := time.Now()
+	c, err := n.payLoadTrans.GetConn(addrPort)
+	n.logger.Info("Get a payload connection costs", "ms", time.Now().Sub(start).Milliseconds(),
+		"tag", tag)
+	if err != nil {
+		return err
+	}
+	start = time.Now()
+	if err := conn.SendMsg(c, tag, data, sig); err != nil {
+		return err
+	}
+	n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(),
+		"tag", tag)
+
+	if err = n.payLoadTrans.ReturnConn(c); err != nil {
+		return err
+	}
+	return nil
+}
+
 // PlainBroadcast broadcasts data in its best effort
 func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 	for i, a := range n.Id2AddrMap {
@@ -335,6 +441,23 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 				panic(err)
 			}
 			n.logger.Info("Broadcasting a message", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
+
+		}(i, a)
+	}
+	return nil
+}
+
+// PlainBroadcastPayLoad broadcasts the payload in its best effort
+func (n *Node) PlainBroadcastPayLoad(tag byte, data interface{}, sig []byte) error {
+	for i, a := range n.Id2AddrMap {
+		go func(id int, addr string) {
+			port := n.Id2PortPayLoadMap[id]
+			addrPort := addr + ":" + port
+			start := time.Now()
+			if err := n.SendPayLoad(tag, data, sig, addrPort); err != nil {
+				panic(err)
+			}
+			n.logger.Info("Broadcasting a payload", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
 
 		}(i, a)
 	}

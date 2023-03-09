@@ -20,6 +20,8 @@ const (
 	PayLoadMsgTag
 )
 
+const HASHSIZE = 32
+
 var msgTagNameMap = map[uint8]string{
 	SMVBAPBValTag:     "VAL",
 	SMVBAPBVoteTag:    "PBV",
@@ -30,15 +32,17 @@ var msgTagNameMap = map[uint8]string{
 }
 
 type Block struct {
-	SN       int
-	TxNum    int
-	Reqs     []byte
-	Height   int
-	Proposer int
+	SN            int
+	TxNum         int
+	PayLoadHashes [][HASHSIZE]byte
+	Height        int
+	Proposer      int
 }
 
 type PayLoadMsg struct {
-	Reqs [][]byte
+	Hash   [HASHSIZE]byte
+	Reqs   [][]byte
+	Sender string
 }
 
 type BoltProposalMsg struct {
@@ -99,7 +103,7 @@ type SMVBAViewPhase struct {
 type SMVBAPBVALMessage struct {
 	SN      int
 	TxCount int
-	Data    []byte
+	Data    [][HASHSIZE]byte
 	Proof   []byte
 	Dealer  string // dealer and sender are the same
 	SMVBAViewPhase
@@ -181,7 +185,7 @@ type SMVBAReadyViewData struct {
 	SN          int
 	txCount     int
 	usePrevData bool // indicate if using the previous data
-	data        []byte
+	data        [][HASHSIZE]byte
 	proof       []byte
 }
 

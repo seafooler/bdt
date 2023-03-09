@@ -63,6 +63,24 @@ func main() {
 		}
 	}
 
+	// Deal with id_p2p_port as a string map
+	idP2PPortPayloadMapInterface := viperRead.GetStringMap("id_p2p_port_payload")
+	if nodeNumber != len(idP2PPortPayloadMapInterface) {
+		panic("id_p2p_port does not match with id_name")
+	}
+	idP2PPortPayloadMap := make(map[int]int, nodeNumber)
+	for idAsString, portAsInterface := range idP2PPortPayloadMapInterface {
+		id, err := strconv.Atoi(idAsString)
+		if err != nil {
+			panic(err)
+		}
+		if port, ok := portAsInterface.(int); ok {
+			idP2PPortPayloadMap[id] = port
+		} else {
+			panic("id_p2p_port in the config file cannot be decoded correctly")
+		}
+	}
+
 	// Deal with id_ips as a string map
 	idIPMapInterface := viperRead.GetStringMap("id_ip")
 	if nodeNumber != len(idIPMapInterface) {
@@ -114,7 +132,9 @@ func main() {
 		viperWrite.Set("name", name)
 		viperWrite.Set("address", idIPMap[i])
 		viperWrite.Set("p2p_port", idP2PPortMap[i])
+		viperWrite.Set("p2p_port_payload", idP2PPortPayloadMap[i])
 		viperWrite.Set("id_p2p_port", idP2PPortMap)
+		viperWrite.Set("id_p2p_port_payload", idP2PPortPayloadMap)
 		//viperWrite.Set("rpc_listen_port", rpcListenPort)
 		viperWrite.Set("TSShare", hex.EncodeToString(shareAsBytes))
 		viperWrite.Set("TSPubKey", hex.EncodeToString(tsPubKeyAsBytes))

@@ -28,10 +28,18 @@ func main() {
 		panic(err)
 	}
 
+	if err = node.StartP2PPayLoadListen(); err != nil {
+		panic(err)
+	}
+
 	// wait for each node to start
 	time.Sleep(time.Second * time.Duration(conf.WaitTime))
 
 	if err = node.EstablishP2PConns(); err != nil {
+		panic(err)
+	}
+
+	if err = node.EstablishP2PPayloadConns(); err != nil {
 		panic(err)
 	}
 
@@ -40,11 +48,12 @@ func main() {
 	//node.WaitForEnoughSyncLaunchMsgs()
 
 	go node.HandleMsgsLoop()
+	go node.HandlePayLoadMsgsLoop()
 
 	go node.Bolt.ProposalLoop(0)
 
 	for {
-		time.Sleep(time.Second)
+		node.BroadcastPayLoad()
 	}
 
 }

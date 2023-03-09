@@ -25,7 +25,7 @@ func NewSPB(s *SMVBA) *SPB {
 
 }
 
-func (spb *SPB) SPBBroadcastData(rawData, proof []byte, txCount, view int) (chan SMVBAQCedData, error) {
+func (spb *SPB) SPBBroadcastData(rawData [][HASHSIZE]byte, proof []byte, txCount, view int) (chan SMVBAQCedData, error) {
 	// Invoke the 1st PB
 	if err := spb.pb1.PBBroadcastData(rawData, proof, txCount, view, 1); err != nil {
 		return nil, err
@@ -47,7 +47,10 @@ func (spb *SPB) SPBBroadcastData(rawData, proof []byte, txCount, view int) (chan
 		return nil, err
 	}
 
-	if err := spb.pb2.PBBroadcastData(hash, outputFrom1PB.QC, outputFrom1PB.TxCount, view, 2); err != nil {
+	var mockHashFor2ndPB [][HASHSIZE]byte
+	copy(mockHashFor2ndPB[0][:], hash[:HASHSIZE])
+
+	if err := spb.pb2.PBBroadcastData(mockHashFor2ndPB, outputFrom1PB.QC, outputFrom1PB.TxCount, view, 2); err != nil {
 		return nil, err
 	}
 

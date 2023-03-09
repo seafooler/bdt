@@ -19,8 +19,9 @@ type PB struct {
 
 	pbOutputCh chan SMVBAQCedData
 
-	dataToPB    []byte
+	dataToPB    [][HASHSIZE]byte
 	partialSigs [][]byte
+	dataHash    []byte
 
 	mux sync.RWMutex
 }
@@ -32,7 +33,7 @@ func NewPB(s *SPB, id uint8) *PB {
 	}
 }
 
-func (pb *PB) PBBroadcastData(data, proof []byte, txCount, view int, phase uint8) error {
+func (pb *PB) PBBroadcastData(data [][HASHSIZE]byte, proof []byte, txCount, view int, phase uint8) error {
 	qcdChan := make(chan SMVBAQCedData)
 
 	pb.mux.Lock()
@@ -72,7 +73,9 @@ func (pb *PB) handlePBVALMsg(valMsg *SMVBAPBVALMessage) error {
 	addrPort := pb.spb.s.node.Id2AddrMap[dealerID] + ":" + pb.spb.s.node.Id2PortMap[dealerID]
 
 	// TODO: should sign over the data plus SNView rather than the only data
-	hash, err := genMsgHashSum(valMsg.Data)
+	// TODO: simply use the first hash
+	hash, err := genMsgHashSum(valMsg.Data[0][:])
+	pb.dataHash = hash
 	if err != nil {
 		return err
 	}
@@ -113,7 +116,7 @@ func (pb *PB) handlePBVOTMsg(votMsg *SMVBAPBVOTMessage) error {
 		qcedData := SMVBAQCedData{
 			SN:             votMsg.SN,
 			TxCount:        votMsg.TxCount,
-			Hash:           pb.dataToPB,
+			Hash:           pb.dataHash,
 			QC:             intactSig,
 			SMVBAViewPhase: votMsg.SMVBAViewPhase,
 		}

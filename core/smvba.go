@@ -19,8 +19,9 @@ type SMVBA struct {
 
 	logger hclog.Logger
 
-	inProcessData, inProcessProof []byte
-	inProcessTxNum                int
+	inProcessProof []byte
+	inProcessData  [][HASHSIZE]byte
+	inProcessTxNum int
 
 	finishMessagesMap map[int]map[string]*SMVBAFinishMessage
 	lockMessageMap    map[int]map[string]*SMVBAPBVALMessage
@@ -44,6 +45,8 @@ type SMVBA struct {
 	voteMessageMap    map[int]map[string]*SMVBAVoteMessage
 
 	readyViewDataMap map[int]*SMVBAReadyViewData
+
+	payLoadHashesMap map[string][][HASHSIZE]byte
 }
 
 func NewSMVBA(node *Node) *SMVBA {
@@ -64,6 +67,7 @@ func NewSMVBA(node *Node) *SMVBA {
 		readyViewDataMap:  make(map[int]*SMVBAReadyViewData),
 		outputCh:          make(chan int),
 		stopCh:            make(chan int),
+		payLoadHashesMap:  make(map[string][][HASHSIZE]byte),
 
 		coin: make(map[int]int),
 	}
@@ -90,7 +94,7 @@ func (s *SMVBA) Output() []byte {
 }
 
 // BroadcastViaSPB encapsulates the inner functions of calling SPB
-func (s *SMVBA) BroadcastViaSPB(data, proof []byte, txCount, view int) (chan SMVBAQCedData, error) {
+func (s *SMVBA) BroadcastViaSPB(data [][HASHSIZE]byte, proof []byte, txCount, view int) (chan SMVBAQCedData, error) {
 	return s.spb.SPBBroadcastData(data, proof, txCount, view)
 }
 
@@ -159,7 +163,7 @@ func (s *SMVBA) HandleFinishMsg(fMsg *SMVBAFinishMessage) {
 	}
 }
 
-func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, txCount, v int) error {
+func (s *SMVBA) RunOneMVBAView(usePrevData bool, data [][HASHSIZE]byte, proof []byte, txCount, v int) error {
 	s.logger.Info("RunOneMVBAView is called", "replica", s.node.Name, "sn", s.node.sn, "view", v)
 	s.Lock()
 
@@ -211,7 +215,7 @@ func (s *SMVBA) RunOneMVBAView(usePrevData bool, data, proof []byte, txCount, v 
 
 	// Phase 1: SPB phase
 	s.logger.Debug("Run a new view by calling the SPB", "replica", s.node.Name, "sn", s.node.sn,
-		"view", s.view, "data", string(s.inProcessData), "usePrevData", usePrevData)
+		"view", s.view, "data", s.inProcessData, "usePrevData", usePrevData)
 	qcedDataCh, err := s.BroadcastViaSPB(s.inProcessData, s.inProcessProof, s.inProcessTxNum, s.view)
 	if err != nil {
 		return err
@@ -354,13 +358,24 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 		hm := SMVBAHaltMessage{
 			SN:      sn,
 			TxCount: txNum,
-			Hash:    finishMsgByCoin.Hash,
 			Proof:   finishMsgByCoin.QC,
 			View:    v,
 			Dealer:  finishMsgByCoin.Dealer,
 		}
 
 		go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
+
+		payLoadHashes, ok := s.payLoadHashesMap[coinNode]
+		if !ok {
+			s.logger.Error("payLoadHashes has not received by the node")
+		}
+
+		s.node.Lock()
+		for _, plHash := range payLoadHashes {
+			delete(s.node.payLoads, plHash)
+		}
+		s.node.Unlock()
+
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
 			"dealer", finishMsgByCoin.Dealer, "txNum", txNum)
 		go func() {
@@ -407,12 +422,10 @@ func (s *SMVBA) BroadcastPreVote(sn, v int) error {
 	if ok {
 		// lock data exists
 		pvm.Flag = true
-		pvm.Hash = lockData.Data
 		pvm.TxCount = lockData.TxCount
 		pvm.ProofOrPartialSig = lockData.Proof
 	} else {
 		pvm.Flag = false
-		pvm.Hash = nil
 		pvm.TxCount = 0
 		pvm.ProofOrPartialSig = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v",
 			msgTagNameMap[SMVBAPreVoteTag], v)))
@@ -546,13 +559,24 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			hm := SMVBAHaltMessage{
 				SN:      vm.SN,
 				TxCount: vm.TxCount,
-				Hash:    vm.Hash,
 				Proof:   intactTS,
 				View:    vm.View,
 				Dealer:  vm.Dealer,
 			}
 
 			go s.node.PlainBroadcast(SMVBAHaltTag, hm, nil)
+
+			payLoadHashes, ok := s.payLoadHashesMap[vm.Dealer]
+			if !ok {
+				s.logger.Error("payLoadHashes has not received by the node")
+			}
+
+			s.node.Lock()
+			for _, plHash := range payLoadHashes {
+				delete(s.node.payLoads, plHash)
+			}
+			s.node.Unlock()
+
 			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn,
 				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount)
 			go func() {
@@ -576,7 +600,8 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			return
 		}
 
-		var dataForNewView, proofForNewView []byte
+		var proofForNewView []byte
+		var dataForNewView [][HASHSIZE]byte
 		var txCountForNewView int
 		if falseCount == 2*s.node.F+1 {
 			// 2f+1 false votes
@@ -588,7 +613,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			// TODO: proofForNewView is different from the paper description
 			proofForNewView = intactTS
 		} else {
-			dataForNewView = someVoteMsgTrue.Hash
+			dataForNewView = s.payLoadHashesMap[someVoteMsgTrue.Dealer]
 			proofForNewView = someVoteMsgTrue.Proof
 			txCountForNewView = someVoteMsgTrue.TxCount
 		}
@@ -611,6 +636,18 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 		s.logger.Debug("Data is output after consensus by receiving a halt message ", "replica", s.node.Name,
 			"sn", hm.SN, "node-view", s.view, "dealer", hm.Dealer, "hash", string(s.output))
 		go s.node.PlainBroadcast(SMVBAHaltTag, *hm, nil)
+
+		payLoadHashes, ok := s.payLoadHashesMap[hm.Dealer]
+		if !ok {
+			s.logger.Error("payLoadHashes has not received by the node")
+		}
+
+		s.node.Lock()
+		for _, plHash := range payLoadHashes {
+			delete(s.node.payLoads, plHash)
+		}
+		s.node.Unlock()
+
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn, "View", s.view,
 			"dealer", hm.Dealer, "txNum", hm.TxCount)
 		go func() {

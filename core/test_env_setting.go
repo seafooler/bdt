@@ -7,11 +7,12 @@ import (
 	"time"
 )
 
-func Setup(numNode int, stat uint8, startPort int, logLevel int) []*Node {
+func Setup(numNode int, stat uint8, startPort, payLoadStartPort int, logLevel int) []*Node {
 	id2NameMap := make(map[int]string, numNode)
 	name2IdMap := make(map[string]int, numNode)
 	id2AddrMap := make(map[int]string, numNode)
 	id2PortMap := make(map[int]string, numNode)
+	id2PortPayloadMap := make(map[int]string, numNode)
 	for i := 0; i < numNode; i++ {
 		name := "node" + strconv.Itoa(i)
 		addr := "127.0.0.1"
@@ -20,6 +21,8 @@ func Setup(numNode int, stat uint8, startPort int, logLevel int) []*Node {
 		name2IdMap[name] = i
 		id2AddrMap[i] = addr
 		id2PortMap[i] = port
+		payLoadPort := strconv.Itoa(payLoadStartPort + i)
+		id2PortPayloadMap[i] = payLoadPort
 	}
 
 	shares, pubKey := sign_tools.GenTSKeys(numNode/3*2+1, numNode)
@@ -27,8 +30,8 @@ func Setup(numNode int, stat uint8, startPort int, logLevel int) []*Node {
 	nodes := make([]*Node, numNode)
 
 	for id, name := range id2NameMap {
-		conf := config.New(id, name, id2NameMap, name2IdMap, id2AddrMap[id], id2PortMap[id],
-			shares[id], pubKey, id2AddrMap, id2PortMap, 10, logLevel, 500, 0, false,
+		conf := config.New(id, name, id2NameMap, name2IdMap, id2AddrMap[id], id2PortMap[id], id2PortPayloadMap[id],
+			shares[id], pubKey, id2AddrMap, id2PortMap, id2PortPayloadMap, 10, logLevel, 500, 0, false,
 			1000, 500, 512, 1000, 512, 20)
 
 		nodes[id] = NewNode(conf)
