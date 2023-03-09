@@ -105,7 +105,7 @@ func (n *Node) BroadcastPayLoad() {
 		}
 
 		var buf [HASHSIZE]byte
-		copy(mockHash[:], buf[0:HASHSIZE])
+		copy(buf[0:HASHSIZE], mockHash[:])
 		payLoadMsg := PayLoadMsg{
 			Sender: n.Name,
 			// Mock a hash
