@@ -152,7 +152,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		Voter:  b.node.Id,
 	}
 	// the next leader is (pm.Height+1)%b.node.N
-	leaderAddrPort := b.node.Id2AddrMap[b.leaderId] + ":" + b.node.Id2PortMap[(pm.Height+1)%b.node.N]
+	leaderAddrPort := b.node.Id2AddrMap[(pm.Height+1)%b.node.N] + ":" + b.node.Id2PortMap[(pm.Height+1)%b.node.N]
 	err = b.node.SendMsg(BoltVoteMsgTag, boltVoteMsg, nil, leaderAddrPort)
 	if err != nil {
 		b.bLogger.Error("fail to vote for the block", "block_index", pm.Height)
