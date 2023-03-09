@@ -158,7 +158,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		b.bLogger.Error("fail to vote for the block", "block_index", pm.Height)
 		return err
 	} else {
-		b.bLogger.Debug("successfully vote for the block", "block_index", pm.Height)
+		b.bLogger.Info("successfully vote for the block", "block_index", pm.Height)
 	}
 	if b.node.Id == pm.Height%b.node.N {
 		return b.tryAssembleProof(pm.Height)
@@ -229,7 +229,7 @@ func (b *Bolt) tryCommit(sn, height int) error {
 
 // ProcessBoltVoteMsg stores the vote messages and attempts to create the ts proof
 func (b *Bolt) ProcessBoltVoteMsg(vm *BoltVoteMsg) error {
-	b.bLogger.Debug("Process the Bolt Vote Message", "block_index", vm.Height)
+	b.bLogger.Info("Process the Bolt Vote Message", "block_index", vm.Height)
 	b.Lock()
 	defer b.Unlock()
 	if _, ok := b.cachedVoteMsgs[vm.Height]; !ok {
