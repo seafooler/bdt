@@ -184,16 +184,16 @@ func (b *Bolt) tryCache(height int, proof []byte, plHashes [][HASHSIZE]byte) err
 	}
 
 	// verify the proof
-	blockBytes, err := encode(pBlk.Block)
-	if err != nil {
-		b.bLogger.Error("fail to encode the block", "block_index", height)
-		return err
-	}
-
-	if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
-		b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
-		return err
-	}
+	//blockBytes, err := encode(pBlk.Block)
+	//if err != nil {
+	//	b.bLogger.Error("fail to encode the block", "block_index", height)
+	//	return err
+	//}
+	//
+	//if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
+	//	b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
+	//	return err
+	//}
 
 	b.proofedHeight[pBlk.Height] = pBlk.PayLoadHashes
 	b.maxProofedHeight = pBlk.Height
@@ -268,24 +268,25 @@ func (b *Bolt) tryAssembleProof(height int) error {
 			i++
 		}
 
-		cBlk, ok := b.cachedBlockProposals[height]
-		if !ok {
-			b.bLogger.Debug("cachedBlocks does not contain the block", "b.cachedBlocks", b.cachedBlockProposals,
-				"vm.Height", height)
-			// This is not an error, since BoltProposalMsg may be delivered later
-			return nil
-		}
+		//cBlk, ok := b.cachedBlockProposals[height]
+		//if !ok {
+		//	b.bLogger.Debug("cachedBlocks does not contain the block", "b.cachedBlocks", b.cachedBlockProposals,
+		//		"vm.Height", height)
+		//	// This is not an error, since BoltProposalMsg may be delivered later
+		//	return nil
+		//}
 
-		blockBytes, err := encode(cBlk.Block)
-		if err != nil {
-			b.bLogger.Error("fail to encode the block", "block_index", height)
-			return err
-		}
-		proof := sign_tools.AssembleIntactTSPartial(shares, b.node.PubKeyTS, blockBytes, b.node.N-b.node.F, b.node.N)
+		//blockBytes, err := encode(cBlk.Block)
+		//if err != nil {
+		//	b.bLogger.Error("fail to encode the block", "block_index", height)
+		//	return err
+		//}
+		//proof := sign_tools.AssembleIntactTSPartial(shares, b.node.PubKeyTS, blockBytes, b.node.N-b.node.F, b.node.N)
 
 		go func() {
 			b.proofReady <- ProofData{
-				Proof:  proof,
+				//Proof:  proof,
+				Proof:  nil,
 				Height: height,
 			}
 		}()
