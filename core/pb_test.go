@@ -6,9 +6,9 @@ import (
 )
 
 func TestSimpleSinglePB(t *testing.T) {
-	nodes := Setup(4, 2, 9006, 3)
+	nodes := Setup(4, 2, 9006, 7006, 3)
 
-	originalData := []byte("seafooler")
+	originalData := [][HASHSIZE]byte{[HASHSIZE]byte{'s', 'e', 'a', 'f', 'o', 'o', 'l', 'e', 'r'}}
 
 	if err := nodes[0].Smvba.spb.pb1.PBBroadcastData(originalData, nil, 100, 1, 1); err != nil {
 		t.Fatal(err)
@@ -16,7 +16,7 @@ func TestSimpleSinglePB(t *testing.T) {
 
 	data := <-nodes[0].Smvba.spb.pb1.pbOutputCh
 
-	if !bytes.Equal(originalData, data.Hash) {
+	if !bytes.Equal(originalData[0][:], data.Hash) {
 		t.Fatalf("The QCed data does not equal the original one, original: %s, qced: %s",
 			originalData, data.Hash[:len(data.Hash)-1])
 	}

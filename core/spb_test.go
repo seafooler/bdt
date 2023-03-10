@@ -8,13 +8,13 @@ import (
 
 // Only replica 0 issues an SPB
 func TestSimpleSPB(t *testing.T) {
-	nodes := Setup(4, 2, 9036, 3)
+	nodes := Setup(4, 2, 9036, 7046, 3)
 
-	originalData := []byte("seafooler")
+	originalData := [][HASHSIZE]byte{[HASHSIZE]byte{'s', 'e', 'a', 'f', 'o', 'o', 'l', 'e', 'r'}}
 
 	var qcedDataCh chan SMVBAQCedData
 	var err error
-	if qcedDataCh, err = nodes[0].Smvba.BroadcastViaSPB(originalData, nil, 0); err != nil {
+	if qcedDataCh, err = nodes[0].Smvba.BroadcastViaSPB(originalData, nil, 0, 0); err != nil {
 		t.Fatal(err)
 	}
 

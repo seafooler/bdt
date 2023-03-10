@@ -88,7 +88,8 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 		}
 
 		//simulate the ddos attack to the leader
-		if b.node.DDoS {
+		// test the switch from opt to pes and back, so only the first sn is ddos
+		if b.node.DDoS && b.node.sn == 0 {
 			time.Sleep(time.Millisecond * time.Duration(b.node.Config.DDoSDelay))
 		}
 
