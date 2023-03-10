@@ -119,11 +119,11 @@ func (n *Node) StartListenRPC() {
 			n.Lock()
 			defer n.Unlock()
 			if _, ok := n.committedPayloads[assertedPayLoad.Hash]; ok {
-				n.logger.Info("Receive an already committed payload", "sender", assertedPayLoad.Sender, "hash",
+				n.logger.Debug("Receive an already committed payload", "sender", assertedPayLoad.Sender, "hash",
 					string(assertedPayLoad.Hash[:]))
 			} else {
 				n.payLoads[assertedPayLoad.Hash] = true
-				n.logger.Info("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
+				n.logger.Debug("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
 					string(assertedPayLoad.Hash[:]), "payload count", len(n.payLoads))
 			}
 			return nil
@@ -157,13 +157,13 @@ func (n *Node) BroadcastPayLoadLoop() {
 			Hash: buf,
 			Reqs: make([][]byte, txNum),
 		}
-		n.logger.Info("1st step takes", "ms", time.Now().Sub(start).Milliseconds())
+		n.logger.Debug("1st step takes", "ms", time.Now().Sub(start).Milliseconds())
 		start = time.Now()
 		for i := 0; i < txNum; i++ {
 			payLoadMsg.Reqs[i] = make([]byte, n.Config.TxSize)
 			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
-		n.logger.Info("2nd step takes", "ms", time.Now().Sub(start).Milliseconds())
+		n.logger.Debug("2nd step takes", "ms", time.Now().Sub(start).Milliseconds())
 		n.BroadcastPayLoad(payLoadMsg, buf[:])
 		time.Sleep(time.Millisecond * 100)
 	}
@@ -510,7 +510,7 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 			if err := n.SendMsg(tag, data, sig, addrPort); err != nil {
 				panic(err)
 			}
-			n.logger.Info("Broadcasting a message", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
+			n.logger.Debug("Broadcasting a message", "tag", tag, "ms", time.Now().Sub(start).Milliseconds())
 
 		}(i, a)
 	}
@@ -525,7 +525,7 @@ func (n *Node) BroadcastPayLoad(data interface{}, hash []byte) error {
 			if _, err := n.rpcClientsMap[id].Call(data); err != nil {
 				panic(err)
 			}
-			n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(), "hash", string(hash))
+			n.logger.Debug("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(), "hash", string(hash))
 		}(i)
 	}
 	return nil
