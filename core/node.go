@@ -158,7 +158,7 @@ func (n *Node) BroadcastPayLoadLoop() {
 			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
 		n.logger.Info("2nd step takes", "ms", time.Now().Sub(start).Milliseconds())
-		n.BroadcastPayLoad(payLoadMsg)
+		n.BroadcastPayLoad(payLoadMsg, buf[:])
 		time.Sleep(time.Millisecond * 100)
 	}
 }
@@ -505,12 +505,14 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 }
 
 // BroadcastPayLoad broadcasts the payload in its best effort
-func (n *Node) BroadcastPayLoad(data interface{}) error {
+func (n *Node) BroadcastPayLoad(data interface{}, hash []byte) error {
 	for i, _ := range n.Id2AddrMap {
 		go func(id int) {
+			start := time.Now()
 			if _, err := n.rpcClientsMap[id].Call(data); err != nil {
 				panic(err)
 			}
+			n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(), "hash", hash)
 		}(i)
 	}
 	return nil
