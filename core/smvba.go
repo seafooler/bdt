@@ -164,7 +164,8 @@ func (s *SMVBA) HandleFinishMsg(fMsg *SMVBAFinishMessage) {
 }
 
 func (s *SMVBA) RunOneMVBAView(usePrevData bool, data [][HASHSIZE]byte, proof []byte, txCount, v int) error {
-	s.logger.Info("RunOneMVBAView is called", "replica", s.node.Name, "sn", s.node.sn, "view", v)
+	s.logger.Info("RunOneMVBAView is called", "replica", s.node.Name, "sn", s.node.sn, "view", v,
+		"payloadCnt", len(data))
 	s.Lock()
 
 	if s.output != nil {
@@ -373,7 +374,8 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 		committedCnt := s.updatePayloads(payLoadHashes)
 
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
-			"dealer", finishMsgByCoin.Dealer, "txNum", txNum, "committedPayloadCnt", committedCnt)
+			"dealer", finishMsgByCoin.Dealer, "txNum", txNum, "committedPayloadCnt", committedCnt,
+			"len(payLoadHashes)", len(payLoadHashes))
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     sn,
@@ -588,7 +590,8 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			committedCnt := s.updatePayloads(payLoadHashes)
 
 			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn,
-				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount, "committedPayloadCnt", committedCnt)
+				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount, "committedPayloadCnt", committedCnt,
+				"len(payLoadHashes)", len(payLoadHashes))
 			go func() {
 				s.node.statusChangeSignal <- StatusChangeSignal{
 					SN:     vm.SN,
@@ -655,7 +658,8 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 		committedCnt := s.updatePayloads(payLoadHashes)
 
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn, "View", s.view,
-			"dealer", hm.Dealer, "txNum", hm.TxCount, "committedPayloadCnt", committedCnt)
+			"dealer", hm.Dealer, "txNum", hm.TxCount, "committedPayloadCnt", committedCnt,
+			"len(payLoadHashes)", len(payLoadHashes))
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     hm.SN,
