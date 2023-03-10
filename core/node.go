@@ -165,7 +165,7 @@ func (n *Node) BroadcastPayLoadLoop() {
 		}
 		n.logger.Debug("2nd step takes", "ms", time.Now().Sub(start).Milliseconds())
 		n.BroadcastPayLoad(payLoadMsg, buf[:])
-		time.Sleep(time.Millisecond * 100)
+		//time.Sleep(time.Millisecond * 100)
 	}
 }
 
