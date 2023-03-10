@@ -123,7 +123,7 @@ func (n *Node) StartListenRPC() {
 					string(assertedPayLoad.Hash[:]))
 			} else {
 				n.payLoads[assertedPayLoad.Hash] = true
-				n.logger.Debug("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
+				n.logger.Info("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
 					string(assertedPayLoad.Hash[:]), "payload count", len(n.payLoads))
 			}
 			return nil
@@ -139,7 +139,7 @@ func (n *Node) BroadcastPayLoadLoop() {
 	gorpc.RegisterType(&PayLoadMsg{})
 	payLoadFullTime := float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
 
-	n.logger.Info("payloadFullTime", "ms", payLoadFullTime)
+	n.logger.Info("payloadFullTime", "s", payLoadFullTime)
 
 	for {
 		time.Sleep(time.Duration(payLoadFullTime) * time.Second)
