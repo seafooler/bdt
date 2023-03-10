@@ -98,7 +98,7 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 				"err", err.Error())
 		} else {
 			b.bLogger.Info("successfully broadcast a new proposal and proof", "sn", newBlock.SN,
-				"height", newBlock.Height)
+				"height", newBlock.Height, "payloadCnt", len(payLoadHashes))
 		}
 	}
 }
