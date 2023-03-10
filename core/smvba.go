@@ -124,8 +124,8 @@ func (s *SMVBA) HandleFinishMsg(fMsg *SMVBAFinishMessage) {
 	}
 
 	// doneShareMessage's SNView is assigned based on fMsg's SNView, so no mutex is needed here
-	coinShare := sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v",
-		msgTagNameMap[SMVBADoneShareTag], fMsg.View)))
+	coinShare := sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%v",
+		msgTagNameMap[SMVBADoneShareTag], fMsg.SN, fMsg.View)))
 	doneShareMsg := SMVBADoneShareMessage{
 		SN:      fMsg.SN,
 		TxCount: fMsg.TxCount,
@@ -275,8 +275,8 @@ func (s *SMVBA) HandleDoneShareMsg(msg *SMVBADoneShareMessage) {
 		return
 	}
 
-	coinShare := sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v",
-		msgTagNameMap[SMVBADoneShareTag], msg.View)))
+	coinShare := sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%v",
+		msgTagNameMap[SMVBADoneShareTag], msg.SN, msg.View)))
 	doneShareMsg := SMVBADoneShareMessage{
 		SN:      msg.SN,
 		TxCount: msg.TxCount,
@@ -316,7 +316,7 @@ func (s *SMVBA) HandleDoneShareMsg(msg *SMVBADoneShareMessage) {
 			break
 		}
 	}
-	data := []byte(fmt.Sprintf("%s%v", msgTagNameMap[SMVBADoneShareTag], msg.View))
+	data := []byte(fmt.Sprintf("%s%v%v", msgTagNameMap[SMVBADoneShareTag], msg.SN, msg.View))
 	intactTS := sign_tools.AssembleIntactTSPartial(partialSigs, s.node.PubKeyTS, data, 2*s.node.F+1, s.node.N)
 	coin := binary.BigEndian.Uint64(intactTS) % uint64(s.node.N)
 
@@ -443,8 +443,8 @@ func (s *SMVBA) BroadcastPreVote(sn, v int) error {
 	} else {
 		pvm.Flag = false
 		pvm.TxCount = 0
-		pvm.ProofOrPartialSig = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v",
-			msgTagNameMap[SMVBAPreVoteTag], v)))
+		pvm.ProofOrPartialSig = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%v",
+			msgTagNameMap[SMVBAPreVoteTag], sn, v)))
 	}
 
 	go s.node.PlainBroadcast(SMVBAPreVoteTag, pvm, nil)
@@ -476,8 +476,8 @@ func (s *SMVBA) HandlePreVoteMsg(pvm *SMVBAPreVoteMessage) {
 		vm.Flag = true
 		vm.Hash = pvm.Hash
 		vm.Proof = pvm.ProofOrPartialSig
-		vm.Pho = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%T",
-			msgTagNameMap[SMVBAVoteTag], pvm.View, true)))
+		vm.Pho = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%v%T",
+			msgTagNameMap[SMVBAVoteTag], pvm.SN, pvm.View, true)))
 
 		s.Lock()
 
@@ -510,12 +510,12 @@ func (s *SMVBA) HandlePreVoteMsg(pvm *SMVBAPreVoteMessage) {
 				break
 			}
 		}
-		data := []byte(fmt.Sprintf("%s%v", msgTagNameMap[SMVBAPreVoteTag], pvm.View))
+		data := []byte(fmt.Sprintf("%s%v%v", msgTagNameMap[SMVBAPreVoteTag], pvm.SN, pvm.View))
 		intactTS := sign_tools.AssembleIntactTSPartial(partialSigs, s.node.PubKeyTS,
 			data, s.node.N-s.node.F, s.node.N)
 		vm.Proof = intactTS
-		vm.Pho = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%T",
-			msgTagNameMap[SMVBAVoteTag], pvm.View, false)))
+		vm.Pho = sign_tools.SignTSPartial(s.node.PriKeyTS, []byte(fmt.Sprintf("%s%v%v%T",
+			msgTagNameMap[SMVBAVoteTag], pvm.SN, pvm.View, false)))
 		go s.node.PlainBroadcast(SMVBAVoteTag, vm, nil)
 	}
 }
@@ -567,7 +567,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 			s.logger.Debug("Data is output after consensus", "replica", s.node.Name, "sn", vm.SN, "view", vm.View,
 				"dealer", vm.Dealer, "hash", string(s.output))
 
-			data := []byte(fmt.Sprintf("%s%v%T", msgTagNameMap[SMVBAVoteTag], vm.View, true))
+			data := []byte(fmt.Sprintf("%s%v%v%T", msgTagNameMap[SMVBAVoteTag], vm.SN, vm.View, true))
 			intactTS := sign_tools.AssembleIntactTSPartial(partialSigsTrue, s.node.PubKeyTS,
 				data, s.node.N-s.node.F, s.node.N)
 
@@ -618,7 +618,7 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 		var txCountForNewView int
 		if falseCount == 2*s.node.F+1 {
 			// 2f+1 false votes
-			data := []byte(fmt.Sprintf("%s%v%T", msgTagNameMap[SMVBAVoteTag], vm.View, false))
+			data := []byte(fmt.Sprintf("%s%v%v%T", msgTagNameMap[SMVBAVoteTag], vm.SN, vm.View, false))
 			intactTS := sign_tools.AssembleIntactTSPartial(partialSigsFalse, s.node.PubKeyTS,
 				data, s.node.N-s.node.F, s.node.N)
 			usePrevData = true
