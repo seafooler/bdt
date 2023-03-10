@@ -334,10 +334,10 @@ func (n *Node) createBlock() ([][HASHSIZE]byte, int) {
 		if _, ok := n.proposedPayloads[ph]; !ok {
 			payLoadHashes[i] = ph
 		}
+		i++
 		if i >= len(payLoadHashes) {
 			break
 		}
-		i++
 	}
 	return payLoadHashes, i - 1
 }
