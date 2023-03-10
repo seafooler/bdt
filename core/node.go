@@ -159,30 +159,30 @@ func (n *Node) BroadcastPayLoadLoop() {
 	}
 }
 
-func (n *Node) HandlePayLoadMsgsLoop() {
-	msgCh := n.payLoadTrans.MsgChan()
-
-	for {
-		select {
-		case msg := <-msgCh:
-			switch msgAsserted := msg.(type) {
-			case PayLoadMsg:
-				n.Lock()
-				if _, ok := n.committedPayloads[msgAsserted.Hash]; ok {
-					n.logger.Info("Receive an already committed payload", "sender", msgAsserted.Sender, "hash",
-						string(msgAsserted.Hash[:]))
-				} else {
-					n.payLoads[msgAsserted.Hash] = true
-					n.logger.Info("Receive a payload", "sender", msgAsserted.Sender, "hash",
-						string(msgAsserted.Hash[:]), "payload count", len(n.payLoads))
-				}
-				n.Unlock()
-			default:
-				n.logger.Error("Unknown type of the received message from payload transportion!")
-			}
-		}
-	}
-}
+//func (n *Node) HandlePayLoadMsgsLoop() {
+//	msgCh := n.payLoadTrans.MsgChan()
+//
+//	for {
+//		select {
+//		case msg := <-msgCh:
+//			switch msgAsserted := msg.(type) {
+//			case PayLoadMsg:
+//				n.Lock()
+//				if _, ok := n.committedPayloads[msgAsserted.Hash]; ok {
+//					n.logger.Info("Receive an already committed payload", "sender", msgAsserted.Sender, "hash",
+//						string(msgAsserted.Hash[:]))
+//				} else {
+//					n.payLoads[msgAsserted.Hash] = true
+//					n.logger.Info("Receive a payload", "sender", msgAsserted.Sender, "hash",
+//						string(msgAsserted.Hash[:]), "payload count", len(n.payLoads))
+//				}
+//				n.Unlock()
+//			default:
+//				n.logger.Error("Unknown type of the received message from payload transportion!")
+//			}
+//		}
+//	}
+//}
 
 // HandleMsgsLoop starts a loop to deal with the msgs from other peers.
 func (n *Node) HandleMsgsLoop() {

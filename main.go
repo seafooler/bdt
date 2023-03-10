@@ -44,7 +44,7 @@ func main() {
 	//node.WaitForEnoughSyncLaunchMsgs()
 
 	go node.HandleMsgsLoop()
-	go node.HandlePayLoadMsgsLoop()
+	//go node.HandlePayLoadMsgsLoop()
 
 	go node.Bolt.ProposalLoop(0)
 
