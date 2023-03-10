@@ -47,7 +47,7 @@ func (spb *SPB) SPBBroadcastData(rawData [][HASHSIZE]byte, proof []byte, txCount
 		return nil, err
 	}
 
-	var mockHashFor2ndPB [][HASHSIZE]byte
+	mockHashFor2ndPB := make([][HASHSIZE]byte, 1)
 	copy(mockHashFor2ndPB[0][:], hash[:HASHSIZE])
 
 	if err := spb.pb2.PBBroadcastData(mockHashFor2ndPB, outputFrom1PB.QC, outputFrom1PB.TxCount, view, 2); err != nil {
