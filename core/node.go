@@ -105,9 +105,9 @@ func (n *Node) StartListenRPC() {
 		// Accept clients on this TCP address.
 		Addr: ":" + n.P2pPortPayload,
 
-		SendBufferSize: 64 * 1024 * 1024,
+		SendBufferSize: 100 * 1024 * 1024,
 
-		RecvBufferSize: 64 * 1024 * 1024,
+		RecvBufferSize: 100 * 1024 * 1024,
 
 		Handler: func(clientAddr string, payLoad interface{}) interface{} {
 			assertedPayLoad, ok := payLoad.(*PayLoadMsg)
@@ -135,12 +135,12 @@ func (n *Node) StartListenRPC() {
 // BroadcastPayLoad mocks the underlying payload broadcast
 func (n *Node) BroadcastPayLoadLoop() {
 	gorpc.RegisterType(&PayLoadMsg{})
-	payLoadFullTime := 1000 * float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
+	payLoadFullTime := float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
 
 	n.logger.Info("payloadFullTime", "ms", payLoadFullTime)
 
 	for {
-		time.Sleep(time.Duration(payLoadFullTime) * time.Millisecond)
+		time.Sleep(time.Duration(payLoadFullTime) * time.Second)
 		txNum := int(float32(n.Rate) * payLoadFullTime)
 		mockHash, err := genMsgHashSum([]byte(fmt.Sprintf("%d%v", n.Id, time.Now())))
 		if err != nil {
@@ -443,8 +443,8 @@ func (n *Node) EstablishRPCConns() {
 		c := &gorpc.Client{
 			Addr:           addrWithPort,
 			RequestTimeout: 100 * time.Second,
-			SendBufferSize: 64 * 1024 * 1024,
-			RecvBufferSize: 64 * 1024 * 1024,
+			SendBufferSize: 100 * 1024 * 1024,
+			RecvBufferSize: 100 * 1024 * 1024,
 		}
 		n.rpcClientsMap[name] = c
 		c.Start()
