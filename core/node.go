@@ -512,7 +512,7 @@ func (n *Node) BroadcastPayLoad(data interface{}, hash []byte) error {
 			if _, err := n.rpcClientsMap[id].Call(data); err != nil {
 				panic(err)
 			}
-			n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(), "hash", hash)
+			n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(), "hash", string(hash))
 		}(i)
 	}
 	return nil
