@@ -110,6 +110,8 @@ func (n *Node) StartListenRPC() {
 			if !ok {
 				panic("message send is not a payload")
 			}
+			n.Lock()
+			defer n.Unlock()
 			if _, ok := n.committedPayloads[assertedPayLoad.Hash]; ok {
 				n.logger.Info("Receive an already committed payload", "sender", assertedPayLoad.Sender, "hash",
 					string(assertedPayLoad.Hash[:]))
