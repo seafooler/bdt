@@ -370,10 +370,10 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 			s.logger.Error("payLoadHashes has not received by the node")
 		}
 
-		s.updatePayloads(payLoadHashes)
+		committedCnt := s.updatePayloads(payLoadHashes)
 
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", sn, "View", v,
-			"dealer", finishMsgByCoin.Dealer, "txNum", txNum)
+			"dealer", finishMsgByCoin.Dealer, "txNum", txNum, "committedPayloadCnt", committedCnt)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     sn,
@@ -402,16 +402,22 @@ func (s *SMVBA) HaltOrPreVote(sn, v int, coinNode string, txNum int) {
 	}
 }
 
-func (s *SMVBA) updatePayloads(payLoadHashes [][HASHSIZE]byte) {
+func (s *SMVBA) updatePayloads(payLoadHashes [][HASHSIZE]byte) int {
+	committedCount := 0
 	s.node.Lock()
 	for _, plHash := range payLoadHashes {
 		if _, ok := s.node.payLoads[plHash]; ok {
 			delete(s.node.payLoads, plHash)
+			committedCount++
 		} else {
-			s.node.committedPayloads[plHash] = true
+			if _, existed := s.node.committedPayloads[plHash]; !existed {
+				s.node.committedPayloads[plHash] = true
+				committedCount++
+			}
 		}
 	}
 	s.node.Unlock()
+	return committedCount
 }
 
 func (s *SMVBA) BroadcastPreVote(sn, v int) error {
@@ -579,10 +585,10 @@ func (s *SMVBA) HandleVoteMsg(vm *SMVBAVoteMessage) {
 				s.logger.Error("payLoadHashes has not received by the node")
 			}
 
-			s.updatePayloads(payLoadHashes)
+			committedCnt := s.updatePayloads(payLoadHashes)
 
 			s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn,
-				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount)
+				"msg.View", vm.View, "dealer", vm.Dealer, "txNum", vm.TxCount, "committedPayloadCnt", committedCnt)
 			go func() {
 				s.node.statusChangeSignal <- StatusChangeSignal{
 					SN:     vm.SN,
@@ -646,10 +652,10 @@ func (s *SMVBA) HandleHaltMsg(hm *SMVBAHaltMessage) {
 			s.logger.Error("payLoadHashes has not received by the node")
 		}
 
-		s.updatePayloads(payLoadHashes)
+		committedCnt := s.updatePayloads(payLoadHashes)
 
 		s.logger.Info("Commit a block from SMVBA", "replica", s.node.Name, "SN", s.node.sn, "View", s.view,
-			"dealer", hm.Dealer, "txNum", hm.TxCount)
+			"dealer", hm.Dealer, "txNum", hm.TxCount, "committedPayloadCnt", committedCnt)
 		go func() {
 			s.node.statusChangeSignal <- StatusChangeSignal{
 				SN:     hm.SN,
