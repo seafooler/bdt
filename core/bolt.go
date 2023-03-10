@@ -124,6 +124,8 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	b.cachedBlockProposals[pm.Height] = pm
 	// do not retrieve the previous block nor verify the proof for the 0th block
 	// try to cache a previous block
+	b.bLogger.Info("pm message", "height", pm.Height, "plhashes.len", len(pm.PayLoadHashes))
+
 	b.tryCache(pm.Height, pm.Proof, pm.PayLoadHashes)
 
 	// if there is already a subsequent block, deal with it
