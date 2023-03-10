@@ -6,6 +6,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/seafooler/bdt/config"
 	"github.com/seafooler/bdt/conn"
+	"github.com/valyala/gorpc"
+	"log"
 	"math"
 	"reflect"
 	"sync"
@@ -28,6 +30,7 @@ type Node struct {
 	trans *conn.NetworkTransport
 
 	payLoadTrans      *conn.NetworkTransport
+	rpcClientsMap     map[int]*gorpc.Client
 	payLoads          map[[HASHSIZE]byte]bool
 	committedPayloads map[[HASHSIZE]byte]bool
 	maxNumInPayLoad   int
@@ -84,19 +87,45 @@ func (n *Node) StartP2PListen() error {
 	return nil
 }
 
-// StartP2PPayLoadListen starts the node to listen for P2P connection for payload broadcast.
-func (n *Node) StartP2PPayLoadListen() error {
-	var err error
-	n.payLoadTrans, err = conn.NewTCPTransport(":"+n.P2pPortPayload, 2*time.Second,
-		nil, n.MaxPool, n.reflectedTypesMap)
-	if err != nil {
-		return err
+//// StartP2PPayLoadListen starts the node to listen for P2P connection for payload broadcast.
+//func (n *Node) StartP2PPayLoadListen() error {
+//	var err error
+//	n.payLoadTrans, err = conn.NewTCPTransport(":"+n.P2pPortPayload, 2*time.Second,
+//		nil, n.MaxPool, n.reflectedTypesMap)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
+
+func (n *Node) StartListenRPC() {
+	s := &gorpc.Server{
+		// Accept clients on this TCP address.
+		Addr: ":" + n.P2pPortPayload,
+
+		Handler: func(clientAddr string, payLoad interface{}) interface{} {
+			assertedPayLoad, ok := payLoad.(PayLoadMsg)
+			if !ok {
+				panic("message send is not a payload")
+			}
+			if _, ok := n.committedPayloads[assertedPayLoad.Hash]; ok {
+				n.logger.Info("Receive an already committed payload", "sender", assertedPayLoad.Sender, "hash",
+					string(assertedPayLoad.Hash[:]))
+			} else {
+				n.payLoads[assertedPayLoad.Hash] = true
+				n.logger.Info("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
+					string(assertedPayLoad.Hash[:]), "payload count", len(n.payLoads))
+			}
+			return nil
+		},
 	}
-	return nil
+	if err := s.Serve(); err != nil {
+		log.Fatalf("Cannot start rpc server: %s", err)
+	}
 }
 
 // BroadcastPayLoad mocks the underlying payload broadcast
-func (n *Node) BroadcastPayLoad() {
+func (n *Node) BroadcastPayLoadLoop() {
 	payLoadFullTime := 1000 * float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
 
 	n.logger.Info("payloadFullTime", "ms", payLoadFullTime)
@@ -124,7 +153,7 @@ func (n *Node) BroadcastPayLoad() {
 			payLoadMsg.Reqs[i][n.Config.TxSize-1] = '0'
 		}
 		n.logger.Info("2nd step takes", "ms", time.Now().Sub(start).Milliseconds())
-		n.PlainBroadcastPayLoad(PayLoadMsgTag, payLoadMsg, buf[:], nil)
+		n.BroadcastPayLoad(payLoadMsg)
 		time.Sleep(time.Millisecond * 100)
 	}
 }
@@ -382,21 +411,30 @@ func (n *Node) EstablishP2PConns() error {
 	return nil
 }
 
-// EstablishP2PPayloadConns establishes P2P connections for payloads with other nodes.
-func (n *Node) EstablishP2PPayloadConns() error {
-	if n.payLoadTrans == nil {
-		return errors.New("networktransport has not been created")
-	}
+//// EstablishP2PPayloadConns establishes P2P connections for payloads with other nodes.
+//func (n *Node) EstablishP2PPayloadConns() error {
+//	if n.payLoadTrans == nil {
+//		return errors.New("networktransport has not been created")
+//	}
+//	for name, addr := range n.Id2AddrMap {
+//		addrWithPort := addr + ":" + n.Id2PortPayLoadMap[name]
+//		conn, err := n.payLoadTrans.GetConn(addrWithPort)
+//		if err != nil {
+//			return err
+//		}
+//		n.payLoadTrans.ReturnConn(conn)
+//		n.logger.Debug("connection has been established", "sender", n.Name, "receiver", addr)
+//	}
+//	return nil
+//}
+
+func (n *Node) EstablishRPCConns() {
 	for name, addr := range n.Id2AddrMap {
 		addrWithPort := addr + ":" + n.Id2PortPayLoadMap[name]
-		conn, err := n.payLoadTrans.GetConn(addrWithPort)
-		if err != nil {
-			return err
-		}
-		n.payLoadTrans.ReturnConn(conn)
-		n.logger.Debug("connection has been established", "sender", n.Name, "receiver", addr)
+		c := &gorpc.Client{Addr: addrWithPort}
+		n.rpcClientsMap[name] = c
+		c.Start()
 	}
-	return nil
 }
 
 // SendMsg sends a message to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
@@ -461,17 +499,14 @@ func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
 	return nil
 }
 
-// PlainBroadcastPayLoad broadcasts the payload in its best effort
-func (n *Node) PlainBroadcastPayLoad(tag byte, data interface{}, hash, sig []byte) error {
-	for i, a := range n.Id2AddrMap {
-		go func(id int, addr string) {
-			port := n.Id2PortPayLoadMap[id]
-			addrPort := addr + ":" + port
-			if err := n.SendPayLoad(tag, data, hash, sig, addrPort); err != nil {
+// BroadcastPayLoad broadcasts the payload in its best effort
+func (n *Node) BroadcastPayLoad(data interface{}) error {
+	for i, _ := range n.Id2AddrMap {
+		go func(id int) {
+			if _, err := n.rpcClientsMap[id].Call(data); err != nil {
 				panic(err)
 			}
-
-		}(i, a)
+		}(i)
 	}
 	return nil
 }

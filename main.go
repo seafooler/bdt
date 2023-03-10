@@ -28,9 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	if err = node.StartP2PPayLoadListen(); err != nil {
-		panic(err)
-	}
+	go node.StartListenRPC()
 
 	// wait for each node to start
 	time.Sleep(time.Second * time.Duration(conf.WaitTime))
@@ -39,9 +37,7 @@ func main() {
 		panic(err)
 	}
 
-	if err = node.EstablishP2PPayloadConns(); err != nil {
-		panic(err)
-	}
+	node.EstablishRPCConns()
 
 	// Help all the replicas to start simultaneously
 	//node.BroadcastSyncLaunchMsgs()
@@ -53,7 +49,7 @@ func main() {
 	go node.Bolt.ProposalLoop(0)
 
 	for {
-		node.BroadcastPayLoad()
+		node.BroadcastPayLoadLoop()
 	}
 
 }
