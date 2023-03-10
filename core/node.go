@@ -62,6 +62,7 @@ func NewNode(conf *config.Config) *Node {
 		maxNumInPayLoad:   conf.MaxPayloadSize / conf.TxSize,
 		payLoads:          make(map[[HASHSIZE]byte]bool),
 		committedPayloads: make(map[[HASHSIZE]byte]bool),
+		rpcClientsMap:     make(map[int]*gorpc.Client),
 	}
 
 	node.logger = hclog.New(&hclog.LoggerOptions{
