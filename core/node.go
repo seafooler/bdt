@@ -142,7 +142,7 @@ func (n *Node) BroadcastPayLoadLoop() {
 	n.logger.Info("payloadFullTime", "s", payLoadFullTime)
 
 	for {
-		time.Sleep(time.Duration(payLoadFullTime) * time.Second)
+		time.Sleep(time.Duration(payLoadFullTime*1000) * time.Millisecond)
 		txNum := int(float32(n.Rate) * payLoadFullTime)
 		mockHash, err := genMsgHashSum([]byte(fmt.Sprintf("%d%v", n.Id, time.Now())))
 		if err != nil {
