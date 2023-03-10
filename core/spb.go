@@ -81,6 +81,7 @@ func (spb *SPB) processPBVALMsg(valMsg *SMVBAPBVALMessage) error {
 
 	switch valMsg.Phase {
 	case 1:
+		spb.s.payLoadHashesMap[valMsg.Dealer] = valMsg.Data
 		spb.pb1.handlePBVALMsg(valMsg)
 	case 2:
 		if _, ok := spb.s.lockMessageMap[valMsg.View]; !ok {
