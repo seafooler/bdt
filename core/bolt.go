@@ -205,6 +205,7 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 // tryCommit must be wrapped in a lock
 func (b *Bolt) tryCommit(sn, height int) error {
 	if payLoadHashes, ok := b.proofedHeight[height-2]; ok {
+		b.node.Lock()
 		for _, plHash := range payLoadHashes {
 			if _, ok := b.node.payLoads[plHash]; ok {
 				delete(b.node.payLoads, plHash)
@@ -212,6 +213,7 @@ func (b *Bolt) tryCommit(sn, height int) error {
 				b.node.committedPayloads[plHash] = true
 			}
 		}
+		b.node.Unlock()
 		b.bLogger.Info("Commit a block in Bolt", "sn", sn, "block_index", height-2, "payload_cnt",
 			len(payLoadHashes), "payload_after_commit", len(b.node.payLoads))
 		// Todo: check the consecutive commitment
