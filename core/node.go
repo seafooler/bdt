@@ -106,7 +106,7 @@ func (n *Node) StartListenRPC() {
 		Addr: ":" + n.P2pPortPayload,
 
 		Handler: func(clientAddr string, payLoad interface{}) interface{} {
-			assertedPayLoad, ok := payLoad.(PayLoadMsg)
+			assertedPayLoad, ok := payLoad.(*PayLoadMsg)
 			if !ok {
 				panic("message send is not a payload")
 			}
@@ -463,27 +463,27 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 	return nil
 }
 
-// SendPayLoad sends a payload to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
-func (n *Node) SendPayLoad(tag byte, data interface{}, hash, sig []byte, addrPort string) error {
-	start := time.Now()
-	c, err := n.payLoadTrans.GetConn(addrPort)
-	n.logger.Info("Get a payload connection costs", "ms", time.Now().Sub(start).Milliseconds(),
-		"tag", tag)
-	if err != nil {
-		return err
-	}
-	start = time.Now()
-	if err := conn.SendMsg(c, tag, data, sig); err != nil {
-		return err
-	}
-	n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(),
-		"tag", tag, "hash", hash)
-
-	if err = n.payLoadTrans.ReturnConn(c); err != nil {
-		return err
-	}
-	return nil
-}
+//// SendPayLoad sends a payload to another peer identified by the addrPort (e.g., 127.0.0.1:7788)
+//func (n *Node) SendPayLoad(tag byte, data interface{}, hash, sig []byte, addrPort string) error {
+//	start := time.Now()
+//	c, err := n.payLoadTrans.GetConn(addrPort)
+//	n.logger.Info("Get a payload connection costs", "ms", time.Now().Sub(start).Milliseconds(),
+//		"tag", tag)
+//	if err != nil {
+//		return err
+//	}
+//	start = time.Now()
+//	if err := conn.SendMsg(c, tag, data, sig); err != nil {
+//		return err
+//	}
+//	n.logger.Info("Sending a payload", "ms", time.Now().Sub(start).Milliseconds(),
+//		"tag", tag, "hash", hash)
+//
+//	if err = n.payLoadTrans.ReturnConn(c); err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 // PlainBroadcast broadcasts data in its best effort
 func (n *Node) PlainBroadcast(tag byte, data interface{}, sig []byte) error {
