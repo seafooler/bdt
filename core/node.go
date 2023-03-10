@@ -320,10 +320,9 @@ func (n *Node) HandleMsgsLoop() {
 	}
 }
 
+// createBlock must be called in a concurrent context
 func (n *Node) createBlock() ([][HASHSIZE]byte, int) {
 	var payLoadHashes [][HASHSIZE]byte
-	n.Lock()
-	defer n.Unlock()
 	payLoadCount := len(n.payLoads)
 	if payLoadCount < n.MaxPayloadCount {
 		payLoadHashes = make([][HASHSIZE]byte, payLoadCount)
@@ -459,7 +458,7 @@ func (n *Node) EstablishRPCConns() {
 func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) error {
 	start := time.Now()
 	c, err := n.trans.GetConn(addrPort)
-	n.logger.Info("Get a connection costs", "ms", time.Now().Sub(start).Milliseconds(),
+	n.logger.Debug("Get a connection costs", "ms", time.Now().Sub(start).Milliseconds(),
 		"tag", tag)
 	if err != nil {
 		return err
@@ -469,7 +468,7 @@ func (n *Node) SendMsg(tag byte, data interface{}, sig []byte, addrPort string) 
 	if err := conn.SendMsg(c, tag, data, sig); err != nil {
 		return err
 	}
-	n.logger.Info("Sending message", "ms", time.Now().Sub(start).Milliseconds(),
+	n.logger.Debug("Sending message", "ms", time.Now().Sub(start).Milliseconds(),
 		"tag", tag)
 
 	if err = n.trans.ReturnConn(c); err != nil {

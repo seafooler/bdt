@@ -75,7 +75,9 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 			continue
 		}
 
+		b.node.Lock()
 		payLoadHashes, cnt := b.node.createBlock()
+		b.node.Unlock()
 
 		newBlock := &Block{
 			SN:            proofReady.SN,
