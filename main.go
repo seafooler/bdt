@@ -40,8 +40,8 @@ func main() {
 	node.EstablishRPCConns()
 
 	// Help all the replicas to start simultaneously
-	//node.BroadcastSyncLaunchMsgs()
-	//node.WaitForEnoughSyncLaunchMsgs()
+	node.BroadcastSyncLaunchMsgs()
+	node.WaitForEnoughSyncLaunchMsgs()
 
 	go node.HandleMsgsLoop()
 	//go node.HandlePayLoadMsgsLoop()
