@@ -436,7 +436,7 @@ func (n *Node) EstablishP2PConns() error {
 func (n *Node) EstablishRPCConns() {
 	for name, addr := range n.Id2AddrMap {
 		addrWithPort := addr + ":" + n.Id2PortPayLoadMap[name]
-		c := &gorpc.Client{Addr: addrWithPort}
+		c := &gorpc.Client{Addr: addrWithPort, RequestTimeout: 100 * time.Second}
 		n.rpcClientsMap[name] = c
 		c.Start()
 	}
