@@ -123,7 +123,7 @@ func (n *Node) StartListenRPC() {
 					string(assertedPayLoad.Hash[:]))
 			} else {
 				n.payLoads[assertedPayLoad.Hash] = true
-				n.logger.Info("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
+				n.logger.Debug("Receive a payload", "sender", assertedPayLoad.Sender, "hash",
 					string(assertedPayLoad.Hash[:]), "payload count", len(n.payLoads))
 			}
 			return nil
