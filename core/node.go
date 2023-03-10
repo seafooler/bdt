@@ -33,6 +33,7 @@ type Node struct {
 	rpcClientsMap     map[int]*gorpc.Client
 	payLoads          map[[HASHSIZE]byte]bool
 	committedPayloads map[[HASHSIZE]byte]bool
+	proposedPayloads  map[[HASHSIZE]byte]bool
 	maxNumInPayLoad   int
 
 	status             uint8 // 0, 1, 2 indicates the node is in the status of bolt, aba, or smvba
@@ -62,6 +63,7 @@ func NewNode(conf *config.Config) *Node {
 		maxNumInPayLoad:   conf.MaxPayloadSize / conf.TxSize,
 		payLoads:          make(map[[HASHSIZE]byte]bool),
 		committedPayloads: make(map[[HASHSIZE]byte]bool),
+		proposedPayloads:  make(map[[HASHSIZE]byte]bool),
 		rpcClientsMap:     make(map[int]*gorpc.Client),
 	}
 
@@ -330,7 +332,9 @@ func (n *Node) createBlock() ([][HASHSIZE]byte, int) {
 	}
 	i := 0
 	for ph, _ := range n.payLoads {
-		payLoadHashes[i] = ph
+		if _, ok := n.proposedPayloads[ph]; !ok {
+			payLoadHashes[i] = ph
+		}
 		if i >= len(payLoadHashes) {
 			break
 		}

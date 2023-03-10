@@ -16,7 +16,7 @@ type Bolt struct {
 	committedHeight      int
 	maxProofedHeight     int
 	proofedHeight        map[int][][HASHSIZE]byte
-	cachedHeight         map[int]bool
+	cachedHeight         map[int][][HASHSIZE]byte
 	cachedVoteMsgs       map[int]map[int][]byte
 	cachedBlockProposals map[int]*BoltProposalMsg
 
@@ -38,7 +38,7 @@ func NewBolt(node *Node, leader int) *Bolt {
 		leaderId:             leader,
 		committedHeight:      0,
 		proofedHeight:        make(map[int][][HASHSIZE]byte),
-		cachedHeight:         make(map[int]bool),
+		cachedHeight:         make(map[int][][HASHSIZE]byte),
 		cachedVoteMsgs:       make(map[int]map[int][]byte),
 		cachedBlockProposals: make(map[int]*BoltProposalMsg),
 		paceSyncMsgsReceived: make(map[int]struct{}),
@@ -117,15 +117,15 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 	b.bLogger.Debug("Process the Bolt Proposal Message", "sn", pm.SN, "block_index", pm.Height)
 	b.Lock()
 	defer b.Unlock()
-	b.cachedHeight[pm.Height] = true
+	b.cachedHeight[pm.Height] = pm.PayLoadHashes
 	b.cachedBlockProposals[pm.Height] = pm
 	// do not retrieve the previous block nor verify the proof for the 0th block
 	// try to cache a previous block
-	b.tryCache(pm.Height, pm.Proof)
+	b.tryCache(pm.Height, pm.Proof, pm.PayLoadHashes)
 
 	// if there is already a subsequent block, deal with it
-	if _, ok := b.cachedHeight[pm.Height+1]; ok {
-		b.tryCache(pm.Height+1, b.cachedBlockProposals[pm.Height+1].Proof)
+	if plHashes, ok := b.cachedHeight[pm.Height+1]; ok {
+		b.tryCache(pm.Height+1, b.cachedBlockProposals[pm.Height+1].Proof, plHashes)
 	}
 
 	// try to commit a pre-previous block
@@ -168,7 +168,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 }
 
 // tryCache must be wrapped in a lock
-func (b *Bolt) tryCache(height int, proof []byte) error {
+func (b *Bolt) tryCache(height int, proof []byte, plHashes [][HASHSIZE]byte) error {
 	// retrieve the previous block
 	pBlk, ok := b.cachedBlockProposals[height-1]
 	if !ok {
@@ -194,9 +194,15 @@ func (b *Bolt) tryCache(height int, proof []byte) error {
 	b.maxProofedHeight = pBlk.Height
 	delete(b.cachedHeight, pBlk.Height)
 
+	b.node.Lock()
+	for _, hx := range plHashes {
+		b.node.proposedPayloads[hx] = true
+	}
+	b.node.Unlock()
+
 	// if there is already a subsequent block, deal with it
-	if _, ok := b.cachedHeight[height+1]; ok {
-		b.tryCache(height+1, b.cachedBlockProposals[height+1].Proof)
+	if hashes, ok := b.cachedHeight[height+1]; ok {
+		b.tryCache(height+1, b.cachedBlockProposals[height+1].Proof, hashes)
 	}
 
 	return nil
