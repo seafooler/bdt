@@ -100,6 +100,7 @@ func (n *Node) StartP2PListen() error {
 //}
 
 func (n *Node) StartListenRPC() {
+	gorpc.RegisterType(&PayLoadMsg{})
 	s := &gorpc.Server{
 		// Accept clients on this TCP address.
 		Addr: ":" + n.P2pPortPayload,
@@ -127,6 +128,7 @@ func (n *Node) StartListenRPC() {
 
 // BroadcastPayLoad mocks the underlying payload broadcast
 func (n *Node) BroadcastPayLoadLoop() {
+	gorpc.RegisterType(&PayLoadMsg{})
 	payLoadFullTime := 1000 * float32(n.Config.MaxPayloadSize) / float32(n.Config.TxSize*n.Rate)
 
 	n.logger.Info("payloadFullTime", "ms", payLoadFullTime)
