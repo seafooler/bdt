@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/ed25519"
 	"github.com/seafooler/bdt/config"
 	"github.com/seafooler/sign_tools"
 	"strconv"
@@ -29,9 +30,17 @@ func Setup(numNode int, stat uint8, startPort, payLoadStartPort int, logLevel in
 
 	nodes := make([]*Node, numNode)
 
+	sks := make([]ed25519.PrivateKey, numNode)
+	pksMap := make(map[int]ed25519.PublicKey)
+	for i := 0; i < numNode; i++ {
+		sk, pk := sign_tools.GenED25519Keys()
+		sks[i] = sk
+		pksMap[i] = pk
+	}
+
 	for id, name := range id2NameMap {
 		conf := config.New(id, name, id2NameMap, name2IdMap, id2AddrMap[id], id2PortMap[id], id2PortPayloadMap[id],
-			shares[id], pubKey, id2AddrMap, id2PortMap, id2PortPayloadMap, 10, logLevel, 500, 0, false,
+			shares[id], pubKey, sks[id], pksMap, id2AddrMap, id2PortMap, id2PortPayloadMap, 10, logLevel, 500, 0, false,
 			1000, 500, 512, 1000, 512, 20)
 
 		nodes[id] = NewNode(conf)

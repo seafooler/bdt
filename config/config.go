@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"github.com/seafooler/sign_tools"
 	"github.com/spf13/viper"
@@ -26,6 +27,9 @@ type Config struct {
 	// public key of threshold signature
 	PubKeyTS *share.PubPoly
 
+	PriKeyED ed25519.PrivateKey
+	PubKeyED map[int]ed25519.PublicKey
+
 	Id2AddrMap        map[int]string // map from id to address
 	Id2PortMap        map[int]string // map from id to p2pPort
 	Id2PortPayLoadMap map[int]string // map from id to p2pPortPayload
@@ -45,8 +49,9 @@ type Config struct {
 
 // New creates a new variable of type Config from some arguments.
 func New(id int, name string, id2NameMap map[int]string, name2IdMap map[string]int, addr, p2pPort, p2pPortPayLoad string,
-	priKeyTS *share.PriShare, pubKeyTS *share.PubPoly, id2AddrMap, id2PortMap, id2PortPayloadMap map[int]string, maxPool, logLevel,
-	timeOut int, mockLatency int, ddos bool, ddosDelay, maxPayloadSize, maxPayloadCount, rate, txSize, waitTime int) *Config {
+	priKeyTS *share.PriShare, pubKeyTS *share.PubPoly, priKeyED ed25519.PrivateKey, pubKeyED map[int]ed25519.PublicKey,
+	id2AddrMap, id2PortMap, id2PortPayloadMap map[int]string, maxPool, logLevel, timeOut int, mockLatency int,
+	ddos bool, ddosDelay, maxPayloadSize, maxPayloadCount, rate, txSize, waitTime int) *Config {
 	conf := &Config{
 		Id:                id,
 		Name:              name,
@@ -57,6 +62,8 @@ func New(id int, name string, id2NameMap map[int]string, name2IdMap map[string]i
 		P2pPortPayload:    p2pPortPayLoad,
 		PriKeyTS:          priKeyTS,
 		PubKeyTS:          pubKeyTS,
+		PriKeyED:          priKeyED,
+		PubKeyED:          pubKeyED,
 		Id2AddrMap:        id2AddrMap,
 		Id2PortMap:        id2PortMap,
 		Id2PortPayLoadMap: id2PortPayloadMap,
@@ -180,7 +187,25 @@ func LoadConfig(configPrefix, configName string) (*Config, error) {
 		return nil, err
 	}
 
-	return New(id, name, id2NameMap, name2IdMap, addr, p2pPort, p2pPortPayload, tsShareKey, tsPubKey, id2AddrMap, id2P2PPortMap,
-		id2P2PPortPayloadMap, maxPool, logLevel, timeOut, mockLatency, ddos, ddosDelay, maxPayloadSize, maxPayloadCount,
-		rate, txSize, waitTime), nil
+	edPriKeyAsString := viperConfig.GetString("pri_key")
+	edPriKey, err := hex.DecodeString(edPriKeyAsString)
+	if err != nil {
+		return nil, err
+	}
+
+	edPubKeyMapString := viperConfig.GetStringMapString("pub_key_map")
+	edPubKeyMap := make(map[int]ed25519.PublicKey, len(edPubKeyMapString))
+
+	for idStr, pkAsStr := range edPubKeyMapString {
+		id, _ := strconv.Atoi(idStr)
+		pk, err := hex.DecodeString(pkAsStr)
+		if err != nil {
+			panic(err)
+		}
+		edPubKeyMap[id] = pk
+	}
+
+	return New(id, name, id2NameMap, name2IdMap, addr, p2pPort, p2pPortPayload, tsShareKey, tsPubKey, edPriKey,
+		edPubKeyMap, id2AddrMap, id2P2PPortMap, id2P2PPortPayloadMap, maxPool, logLevel, timeOut, mockLatency,
+		ddos, ddosDelay, maxPayloadSize, maxPayloadCount, rate, txSize, waitTime), nil
 }

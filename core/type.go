@@ -47,19 +47,19 @@ type PayLoadMsg struct {
 
 type BoltProposalMsg struct {
 	Block
-	Proof []byte
+	Proof map[int][]byte
 }
 
 type BoltVoteMsg struct {
 	SN     int
-	Share  []byte
+	EDSig  []byte
 	Height int
 	Voter  int
 }
 
 type ProofData struct {
 	SN     int
-	Proof  []byte
+	Proof  map[int][]byte
 	Height int
 }
 

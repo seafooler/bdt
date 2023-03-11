@@ -104,7 +104,7 @@ func (b *Bolt) ProposalLoop(startHeight int) {
 }
 
 // BroadcastProposalProof broadcasts the new block and proof of previous block through the ProposalMsg
-func (b *Bolt) BroadcastProposalProof(blk *Block, proof []byte) error {
+func (b *Bolt) BroadcastProposalProof(blk *Block, proof map[int][]byte) error {
 	proposalMsg := BoltProposalMsg{
 		Block: *blk,
 		Proof: proof,
@@ -147,12 +147,14 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 		b.bLogger.Error("fail to encode the block", "block_index", pm.Height)
 		return err
 	}
-	share := sign_tools.SignTSPartial(b.node.PriKeyTS, blockBytes)
+	//share := sign_tools.SignTSPartial(b.node.PriKeyTS, blockBytes)
+
+	sig := sign_tools.SignEd25519(b.node.Config.PriKeyED, blockBytes)
 
 	// send the ts share to the leader
 	boltVoteMsg := BoltVoteMsg{
 		SN:     pm.SN,
-		Share:  share,
+		EDSig:  sig,
 		Height: pm.Height,
 		Voter:  b.node.Id,
 	}
@@ -173,7 +175,7 @@ func (b *Bolt) ProcessBoltProposalMsg(pm *BoltProposalMsg) error {
 }
 
 // tryCache must be wrapped in a lock
-func (b *Bolt) tryCache(height int, proof []byte, plHashes [][HASHSIZE]byte) error {
+func (b *Bolt) tryCache(height int, proof map[int][]byte, plHashes [][HASHSIZE]byte) error {
 	// retrieve the previous block
 	pBlk, ok := b.cachedBlockProposals[height-1]
 	if !ok {
@@ -183,13 +185,26 @@ func (b *Bolt) tryCache(height int, proof []byte, plHashes [][HASHSIZE]byte) err
 		return nil
 	}
 
-	// verify the proof
-	//blockBytes, err := encode(pBlk.Block)
-	//if err != nil {
-	//	b.bLogger.Error("fail to encode the block", "block_index", height)
-	//	return err
-	//}
-	//
+	//verify the proof
+	blockBytes, err := encode(pBlk.Block)
+	if err != nil {
+		b.bLogger.Error("fail to encode the block", "block_index", height)
+		return err
+	}
+
+	if len(proof) < b.node.N-b.node.F {
+		b.bLogger.Error("the number of signatures in the proof is not enough", "needed", b.node.N-b.node.F,
+			"len(proof)", len(proof))
+		return nil
+	}
+
+	for i, sig := range proof {
+		if _, err := sign_tools.VerifySignEd25519(b.node.PubKeyED[i], blockBytes, sig); err != nil {
+			b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
+			return err
+		}
+	}
+
 	//if _, err := sign_tools.VerifyTS(b.node.PubKeyTS, blockBytes, proof); err != nil {
 	//	b.bLogger.Error("fail to verify proof of a previous block", "prev_block_index", pBlk.Height)
 	//	return err
@@ -253,7 +268,7 @@ func (b *Bolt) ProcessBoltVoteMsg(vm *BoltVoteMsg) error {
 	if _, ok := b.cachedVoteMsgs[vm.Height]; !ok {
 		b.cachedVoteMsgs[vm.Height] = make(map[int][]byte)
 	}
-	b.cachedVoteMsgs[vm.Height][vm.Voter] = vm.Share
+	b.cachedVoteMsgs[vm.Height][vm.Voter] = vm.EDSig
 	return b.tryAssembleProof(vm.Height)
 }
 
@@ -261,11 +276,14 @@ func (b *Bolt) ProcessBoltVoteMsg(vm *BoltVoteMsg) error {
 // tryAssembleProof may be called by ProcessBoltVoteMsg() or ProcessBoltProposalMsg()
 func (b *Bolt) tryAssembleProof(height int) error {
 	if len(b.cachedVoteMsgs[height]) == b.node.N-b.node.F {
-		shares := make([][]byte, b.node.N-b.node.F)
-		i := 0
-		for _, share := range b.cachedVoteMsgs[height] {
+		shares := make(map[int][]byte)
+		cnt := 0
+		for i, share := range b.cachedVoteMsgs[height] {
 			shares[i] = share
-			i++
+			cnt++
+			if cnt >= b.node.N-b.node.F {
+				break
+			}
 		}
 
 		//cBlk, ok := b.cachedBlockProposals[height]
@@ -275,7 +293,7 @@ func (b *Bolt) tryAssembleProof(height int) error {
 		//	// This is not an error, since BoltProposalMsg may be delivered later
 		//	return nil
 		//}
-
+		//
 		//blockBytes, err := encode(cBlk.Block)
 		//if err != nil {
 		//	b.bLogger.Error("fail to encode the block", "block_index", height)
@@ -286,7 +304,7 @@ func (b *Bolt) tryAssembleProof(height int) error {
 		go func() {
 			b.proofReady <- ProofData{
 				//Proof:  proof,
-				Proof:  nil,
+				Proof:  shares,
 				Height: height,
 			}
 		}()

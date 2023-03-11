@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
 	"github.com/seafooler/sign_tools"
@@ -115,6 +116,14 @@ func main() {
 	rate := viperRead.GetInt("rate")
 	wait_time := viperRead.GetInt("wait_time")
 
+	sks := make([]ed25519.PrivateKey, nodeNumber)
+	pksMap := make(map[int]string)
+	for i := 0; i < nodeNumber; i++ {
+		sk, pk := sign_tools.GenED25519Keys()
+		sks[i] = sk
+		pksMap[i] = hex.EncodeToString(pk)
+	}
+
 	// write to configure files
 	for i, name := range idNameMap {
 		viperWrite := viper.New()
@@ -151,6 +160,8 @@ func main() {
 		viperWrite.Set("tx_size", tx_size)
 		viperWrite.Set("rate", rate)
 		viperWrite.Set("wait_time", wait_time)
+		viperWrite.Set("pri_key", hex.EncodeToString(sks[i]))
+		viperWrite.Set("pub_key_map", pksMap)
 		viperWrite.WriteConfig()
 	}
 }
