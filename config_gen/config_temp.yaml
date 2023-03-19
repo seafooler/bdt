@@ -20,3 +20,4 @@ mock_latency: 10
 ddos: true
 max_payload_size: 500
 tx_size: 512
+wait_time: 10
