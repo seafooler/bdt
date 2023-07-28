@@ -1,6 +1,0 @@
-.idea
-go.sum
-config_gen/node*.yaml
-bdt
-node*.yaml
-logs*
