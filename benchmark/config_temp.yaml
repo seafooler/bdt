@@ -1,0 +1,23 @@
+id_name:
+  0: node0
+  1: node1
+id_p2p_port:
+  0: 8000
+  1: 8000
+log_level: 3
+max_pool: 10
+timeout: 1000
+mock_latency: 0
+ddos: false
+max_payload_size: 5000
+max_payload_count: 1000
+rate: 1000
+tx_size: 512
+wait_time: 10
+id_ip: 
+  0: 44.201.157.91
+  1: 13.53.245.10
+
+id_ip: 
+  0: 44.201.157.91
+  1: 13.53.245.10

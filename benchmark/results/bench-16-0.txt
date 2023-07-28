@@ -1,0 +1,192 @@
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 44 s
+
+ + RESULTS:
+ Consensus TPS: 982 tx/s
+ Consensus latency: 1,288 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 163 s
+
+ + RESULTS:
+ Consensus TPS: 991 tx/s
+ Consensus latency: 2,282 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 163 s
+
+ + RESULTS:
+ Consensus TPS: 991 tx/s
+ Consensus latency: 2,289 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 163 s
+
+ + RESULTS:
+ Consensus TPS: 4,958 tx/s
+ Consensus latency: 2,291 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 64 s
+
+ + RESULTS:
+ Consensus TPS: 4,894 tx/s
+ Consensus latency: 2,294 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 63 s
+
+ + RESULTS:
+ Consensus TPS: 4,892 tx/s
+ Consensus latency: 2,291 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 63 s
+
+ + RESULTS:
+ Consensus TPS: 4,892 tx/s
+ Consensus latency: 2,294 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 63 s
+
+ + RESULTS:
+ Consensus TPS: 0 tx/s
+ Consensus latency: 2,287 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 64 s
+
+ + RESULTS:
+ Consensus TPS: 4,985 tx/s
+ Consensus latency: 289 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 64 s
+
+ + RESULTS:
+ Consensus TPS: 995 tx/s
+ Consensus latency: 281 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 64 s
+
+ + RESULTS:
+ Consensus TPS: 990 tx/s
+ Consensus latency: 1,314 ms
+
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Protocol: 0 
+ DDOS attack: False 
+ Committee size: 16 nodes
+ Faults: 0 nodes
+ Execution time: 65 s
+
+ + RESULTS:
+ Consensus TPS: 993 tx/s
+ Consensus latency: 281 ms
+
+-----------------------------------------
