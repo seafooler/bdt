@@ -1,0 +1,7 @@
+- hosts: bdt
+  remote_user: vagrant
+  gather_facts: no
+  tasks:
+    - name: kill bdt
+      shell: sudo killall bdt
+      ignore_errors: yes
